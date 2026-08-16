@@ -1,4 +1,4 @@
-import { useState, Suspense, lazy } from 'react'
+import { useState, useCallback, Suspense, lazy } from 'react'
 import { Route, Switch } from 'wouter'
 import { AnimatePresence } from 'framer-motion'
 import { AuthProvider, useAuth } from './lib/auth'
@@ -30,11 +30,13 @@ function RouteFallback() {
 }
 
 function AppInner() {
-  const { user } = useAuth()
+  const { user, isLoaded, isSignedIn } = useAuth()
   const [booted, setBooted] = useState(false)
+  const handleBootDone = useCallback(() => setBooted(true), [])
 
-  if (!booted) return <BootSplash onDone={() => setBooted(true)} />
-  if (!user)   return <AuthScreen />
+  if (!booted || !isLoaded) return <BootSplash onDone={handleBootDone} />
+  if (!isSignedIn)          return <AuthScreen />
+  if (!user)                return <RouteFallback />
 
   return (
     <Layout>

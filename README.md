@@ -7,26 +7,56 @@ Seven-layer cognitive-energy ecosystem. AI-powered biometric + energy management
 - Tailwind CSS 4
 - Recharts for data visualization
 - Wouter for routing
-- Vercel serverless function for Claude API proxy
+- Clerk for authentication
+- Vercel serverless functions (Claude/Groq chat proxy + role management)
+
+## Auth
+
+Sign-in/sign-up is handled by [Clerk](https://clerk.com) (email + password,
+with an email verification code step). Roles (`god` / `admin` / `viewer`)
+are stored in Clerk's `publicMetadata` and resolved server-side:
+
+- The account whose **verified email** matches `GOD_EMAIL` in `api/_clerk.ts`
+  is always granted `god`, automatically, the first time it signs in —
+  no manual dashboard step needed.
+- Every other account defaults to `viewer` on first sign-in.
+- Only `god` can promote/demote accounts between `viewer` and `admin`
+  (Settings → Users tab), enforced server-side in `api/update-role.ts`.
+
+See `.env.example` for the required `VITE_CLERK_PUBLISHABLE_KEY` /
+`CLERK_SECRET_KEY` — get both from your Clerk Dashboard → API Keys.
 
 ## Local dev
 
 ```bash
 npm install
-# Create a .env.local file:
-echo "ANTHROPIC_API_KEY=sk-ant-..." > .env.local
-npm run dev
+cp .env.example .env.local   # fill in your real Clerk + AI keys
 ```
+
+Plain `vite` doesn't serve the `/api/*` serverless functions that auth and
+chat depend on. Use the Vercel CLI for local dev instead so both the
+frontend and the API routes run together:
+
+```bash
+npm i -g vercel   # once
+vercel dev
+```
+
+(`npm run dev` still works for pure frontend iteration, but sign-in/sign-up
+and the AI chat won't function without `vercel dev` or a real deployment.)
 
 ## Deploy to Vercel
 
-1. Push to GitHub (your repo: T3a165/Aurora-Core)
+1. Push to GitHub
 2. Import project at vercel.com — framework: **Vite**
-3. Add environment variable: `ANTHROPIC_API_KEY` = your key
+3. Add environment variables from `.env.example`: `VITE_CLERK_PUBLISHABLE_KEY`,
+   `CLERK_SECRET_KEY`, and `ANTHROPIC_API_KEY` (or `GROQ_API_KEY` as a free
+   fallback)
 4. Deploy
 
-The AI Chat and Simulation AI analysis features require the API key.
-Everything else runs on demo data with no external dependencies.
+Auth requires Clerk to be configured. The AI Chat and Simulation "Analyze
+with AI" features require an AI key — everything else runs on demo data
+with no external dependencies.
 
 ## Architecture
 

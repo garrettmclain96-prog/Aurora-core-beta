@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import {
+  useAuth as useClerkAuth,
+  useUser as useClerkUser,
+  useSignIn,
+  useSignUp,
+} from '@clerk/clerk-react'
 
 export type UserRole = 'god' | 'admin' | 'viewer'
 
@@ -14,128 +20,169 @@ export type User = {
 type AuthCtx = {
   user: User | null
   users: User[]
+  isLoaded: boolean
+  isSignedIn: boolean
   login: (email: string, password: string) => Promise<void>
   signup: (email: string, password: string, name: string) => Promise<void>
+  verifyEmail: (code: string) => Promise<void>
+  resendVerification: () => Promise<void>
+  pendingVerification: boolean
   logout: () => void
   isGod: boolean
   isAdmin: boolean
-  updateUserRole: (id: string, role: UserRole) => void
+  updateUserRole: (id: string, role: UserRole) => Promise<void>
+  refreshUsers: () => Promise<void>
   error: string | null
 }
 
 const Ctx = createContext<AuthCtx>({} as AuthCtx)
 export const useAuth = () => useContext(Ctx)
 
-// God account — always Garrett
-const GOD_EMAIL = 'garrettmclain96@gmail.com'
-// Hash of the god password — never store the plaintext password in source.
-// NOTE: this is a weak, non-cryptographic hash suitable only for this demo's
-// client-only auth. It offers no real protection against someone reading the
-// shipped JS bundle. Real deployments should replace this with server-side
-// auth (see AGENTS.md / README for the Clerk migration note).
-const GOD_PW_HASH = '-7yvizm'
-const GOD_USER: User = {
-  id: 'god-001',
-  email: GOD_EMAIL,
-  name: 'Garrett McLain',
-  role: 'god',
-  avatar: '⚡',
-  joinedAt: '2026-01-01',
-}
-
-const STORAGE_KEY = 'aurora_auth'
-const USERS_KEY   = 'aurora_users'
-
-function hashPassword(pw: string) {
-  // Simple deterministic hash for demo — not for production
-  let h = 0
-  for (let i = 0; i < pw.length; i++) h = ((h << 5) - h + pw.charCodeAt(i)) | 0
-  return h.toString(36)
+function extractError(e: unknown): string {
+  const err = e as { errors?: { message?: string }[]; message?: string }
+  return err?.errors?.[0]?.message ?? err?.message ?? 'Something went wrong'
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser]   = useState<User | null>(null)
+  const { isLoaded: clerkLoaded, isSignedIn, getToken, signOut } = useClerkAuth()
+  const { user: clerkUser } = useClerkUser()
+  const { signIn, setActive: setActiveSignIn } = useSignIn()
+  const { signUp, setActive: setActiveSignUp } = useSignUp()
+
+  const [user, setUser] = useState<User | null>(null)
   const [users, setUsers] = useState<User[]>([])
+  const [pendingVerification, setPendingVerification] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const bootstrappedFor = useRef<string | null>(null)
+
+  const authedFetch = useCallback(async (path: string, init?: RequestInit) => {
+    const token = await getToken()
+    const res = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error ?? `HTTP ${res.status}`)
+    }
+    return res.json()
+  }, [getToken])
+
+  // Resolve (and if needed, bootstrap) this session's role exactly once per sign-in.
+  useEffect(() => {
+    if (!clerkLoaded || !isSignedIn || !clerkUser) {
+      setUser(null)
+      bootstrappedFor.current = null
+      return
+    }
+    if (bootstrappedFor.current === clerkUser.id) return
+    bootstrappedFor.current = clerkUser.id
+    authedFetch('/api/bootstrap-role', { method: 'POST' })
+      .then((u: User) => setUser(u))
+      .catch(e => setError(extractError(e)))
+  }, [clerkLoaded, isSignedIn, clerkUser, authedFetch])
+
+  const refreshUsers = useCallback(async () => {
+    try {
+      const list = await authedFetch('/api/users')
+      setUsers(list)
+    } catch (e) {
+      setError(extractError(e))
+    }
+  }, [authedFetch])
 
   useEffect(() => {
-    // Load current user
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) setUser(JSON.parse(saved))
-    // Load user registry
-    const savedUsers = localStorage.getItem(USERS_KEY)
-    setUsers(savedUsers ? JSON.parse(savedUsers) : [GOD_USER])
-  }, [])
-
-  const saveUsers = (u: User[]) => {
-    setUsers(u)
-    localStorage.setItem(USERS_KEY, JSON.stringify(u))
-  }
+    if (user && (user.role === 'god' || user.role === 'admin')) refreshUsers()
+  }, [user, refreshUsers])
 
   const login = async (email: string, password: string) => {
     setError(null)
-    const normalized = email.toLowerCase().trim()
-
-    // God mode
-    if (normalized === GOD_EMAIL.toLowerCase()) {
-      if (hashPassword(password) !== GOD_PW_HASH) throw new Error('Invalid password')
-      setUser(GOD_USER)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(GOD_USER))
-      return
+    if (!signIn) throw new Error('Auth not ready — try again in a moment')
+    try {
+      const result = await signIn.create({ identifier: email, password })
+      if (result.status === 'complete') {
+        await setActiveSignIn({ session: result.createdSessionId })
+      } else {
+        throw new Error('Additional verification required for this account')
+      }
+    } catch (e) {
+      const msg = extractError(e)
+      setError(msg)
+      throw new Error(msg)
     }
-
-    // Regular users
-    const registry: (User & { pwHash?: string })[] = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-    const found = registry.find(u => u.email.toLowerCase() === normalized)
-    if (!found) throw new Error('No account found. Please sign up.')
-    const entry = found as User & { pwHash?: string }
-    if (entry.pwHash && entry.pwHash !== hashPassword(password)) throw new Error('Invalid password')
-
-    const { pwHash: _pw, ...cleanUser } = entry
-    setUser(cleanUser)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanUser))
   }
 
   const signup = async (email: string, password: string, name: string) => {
     setError(null)
-    const normalized = email.toLowerCase().trim()
-    const registry: (User & { pwHash?: string })[] = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-    if (registry.find(u => u.email.toLowerCase() === normalized)) throw new Error('Account already exists. Please log in.')
-
-    const newUser: User & { pwHash: string } = {
-      id: `usr-${Date.now()}`,
-      email: normalized,
-      name: name.trim(),
-      role: 'viewer',
-      joinedAt: new Date().toISOString().split('T')[0],
-      pwHash: hashPassword(password),
+    if (!signUp) throw new Error('Auth not ready — try again in a moment')
+    try {
+      const [firstName, ...rest] = name.trim().split(' ')
+      await signUp.create({ emailAddress: email, password, firstName, lastName: rest.join(' ') || undefined })
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
+      setPendingVerification(true)
+    } catch (e) {
+      const msg = extractError(e)
+      setError(msg)
+      throw new Error(msg)
     }
-    const updated = [...registry, newUser]
-    localStorage.setItem(USERS_KEY, JSON.stringify(updated))
-    const { pwHash: _pw, ...cleanUser } = newUser
-    setUser(cleanUser)
-    setUsers(updated.map(({ pwHash: _p, ...u }) => u))
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanUser))
+  }
+
+  const verifyEmail = async (code: string) => {
+    setError(null)
+    if (!signUp) throw new Error('Auth not ready — try again in a moment')
+    try {
+      const result = await signUp.attemptEmailAddressVerification({ code })
+      if (result.status === 'complete') {
+        await setActiveSignUp({ session: result.createdSessionId })
+        setPendingVerification(false)
+      } else {
+        throw new Error('Invalid or expired code')
+      }
+    } catch (e) {
+      const msg = extractError(e)
+      setError(msg)
+      throw new Error(msg)
+    }
+  }
+
+  const resendVerification = async () => {
+    setError(null)
+    if (!signUp) throw new Error('Auth not ready — try again in a moment')
+    try {
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
+    } catch (e) {
+      const msg = extractError(e)
+      setError(msg)
+      throw new Error(msg)
+    }
   }
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem(STORAGE_KEY)
+    setUsers([])
+    bootstrappedFor.current = null
+    void signOut()
   }
 
-  const updateUserRole = (id: string, role: UserRole) => {
-    const registry: (User & { pwHash?: string })[] = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-    const updated = registry.map(u => u.id === id ? { ...u, role } : u)
-    localStorage.setItem(USERS_KEY, JSON.stringify(updated))
-    setUsers(updated)
+  const updateUserRole = async (id: string, role: UserRole) => {
+    try {
+      const updated: User = await authedFetch('/api/update-role', {
+        method: 'POST',
+        body: JSON.stringify({ userId: id, role }),
+      })
+      setUsers(prev => prev.map(u => u.id === updated.id ? updated : u))
+    } catch (e) {
+      setError(extractError(e))
+    }
   }
 
   return (
     <Ctx.Provider value={{
-      user, users, login, signup, logout,
-      isGod:  user?.role === 'god',
+      user, users, isLoaded: clerkLoaded, isSignedIn: !!isSignedIn,
+      login, signup, verifyEmail, resendVerification, pendingVerification, logout,
+      isGod: user?.role === 'god',
       isAdmin: user?.role === 'god' || user?.role === 'admin',
-      updateUserRole, error,
+      updateUserRole, refreshUsers, error,
     }}>
       {children}
     </Ctx.Provider>

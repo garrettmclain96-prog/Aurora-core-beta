@@ -4,17 +4,29 @@ import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 
 export function AuthScreen() {
-  const { login, signup } = useAuth()
+  const { login, signup, verifyEmail, resendVerification, pendingVerification } = useAuth()
   const [mode, setMode]     = useState<'login' | 'signup'>('login')
   const [email, setEmail]   = useState('')
   const [pw, setPw]         = useState('')
   const [name, setName]     = useState('')
+  const [code, setCode]     = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState('')
+  const [resent, setResent] = useState(false)
 
   const submit = async () => {
     setError('')
+    if (pendingVerification) {
+      if (!code.trim()) { setError('Enter the code we emailed you'); return }
+      setLoading(true)
+      try {
+        await verifyEmail(code.trim())
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Something went wrong')
+      } finally { setLoading(false) }
+      return
+    }
     if (!email || !pw) { setError('Email and password required'); return }
     if (mode === 'signup' && !name) { setError('Name required'); return }
     setLoading(true)
@@ -25,14 +37,27 @@ export function AuthScreen() {
     } finally { setLoading(false) }
   }
 
-  const field = (label: string, value: string, onChange: (v: string) => void, type = 'text', extra?: React.ReactNode) => (
+  const resend = async () => {
+    setError('')
+    try {
+      await resendVerification()
+      setResent(true)
+      setTimeout(() => setResent(false), 4000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    }
+  }
+
+  const DEFAULT_PLACEHOLDERS: Record<string, string> = { email: 'you@example.com', password: '••••••••' }
+
+  const field = (label: string, value: string, onChange: (v: string) => void, type = 'text', extra?: React.ReactNode, placeholder?: string) => (
     <div>
       <label className="mono text-[9px] text-[var(--color-muted)] tracking-[0.2em] uppercase block mb-1.5">{label}</label>
       <div className="relative">
         <input type={type} value={value} onChange={e => onChange(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}
           className="w-full bg-[var(--color-elevated)] border border-[var(--color-border)] rounded-xl px-4 py-3 text-sm text-[var(--color-text)] placeholder:text-[var(--color-dim)] outline-none transition-all"
-          placeholder={type === 'email' ? 'you@example.com' : type === 'password' ? '••••••••' : 'Your name'} />
+          placeholder={placeholder ?? DEFAULT_PLACEHOLDERS[type] ?? 'Your name'} />
         {extra}
       </div>
     </div>
@@ -95,24 +120,32 @@ export function AuthScreen() {
           </div>
 
           <div className="display font-black text-2xl text-[var(--color-text)] mb-1">
-            {mode === 'login' ? 'Welcome back' : 'Join Aurora Core'}
+            {pendingVerification ? 'Check your email' : mode === 'login' ? 'Welcome back' : 'Join Aurora Core'}
           </div>
           <p className="text-[var(--color-muted)] text-sm mb-6">
-            {mode === 'login' ? 'Sign in to your command center' : 'Create your account to get started'}
+            {pendingVerification
+              ? `Enter the 6-digit code we sent to ${email}`
+              : mode === 'login' ? 'Sign in to your command center' : 'Create your account to get started'}
           </p>
 
           <div className="card p-6 space-y-4">
             <AnimatePresence mode="wait">
-              <motion.div key={mode} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-                {mode === 'signup' && field('Full name', name, setName)}
-                {field('Email address', email, setEmail, 'email')}
-                {field('Password', pw, setPw, showPw ? 'text' : 'password',
-                  <button type="button" onClick={() => setShowPw(s => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors">
-                    {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                )}
-              </motion.div>
+              {pendingVerification ? (
+                <motion.div key="verify" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                  {field('Verification code', code, setCode, 'text', undefined, '123456')}
+                </motion.div>
+              ) : (
+                <motion.div key={mode} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                  {mode === 'signup' && field('Full name', name, setName)}
+                  {field('Email address', email, setEmail, 'email')}
+                  {field('Password', pw, setPw, showPw ? 'text' : 'password',
+                    <button type="button" onClick={() => setShowPw(s => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors">
+                      {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  )}
+                </motion.div>
+              )}
             </AnimatePresence>
 
             {error && (
@@ -122,24 +155,43 @@ export function AuthScreen() {
               </motion.div>
             )}
 
+            {resent && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="mono text-[10px] text-[#00ffc8] bg-[#00ffc810] border border-[#00ffc830] rounded-lg px-3 py-2">
+                Code resent — check your inbox.
+              </motion.div>
+            )}
+
             <motion.button onClick={submit} disabled={loading} whileTap={{ scale: 0.98 }}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl display font-bold text-sm transition-all disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, #00ffc8, #00c89b)', color: '#020508' }}>
               {loading
                 ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <>{mode === 'login' ? 'Sign In' : 'Create Account'} <ArrowRight className="w-4 h-4" /></>}
+                : pendingVerification
+                  ? <>Verify Email <ArrowRight className="w-4 h-4" /></>
+                  : <>{mode === 'login' ? 'Sign In' : 'Create Account'} <ArrowRight className="w-4 h-4" /></>}
             </motion.button>
           </div>
 
-          <div className="flex items-center justify-center gap-2 mt-4">
-            <span className="text-xs text-[var(--color-muted)]">
-              {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
-            </span>
-            <button onClick={() => { setMode(m => m === 'login' ? 'signup' : 'login'); setError('') }}
-              className="text-xs text-[#00ffc8] hover:text-[#7df9ff] transition-colors display font-bold">
-              {mode === 'login' ? 'Sign up' : 'Sign in'}
-            </button>
-          </div>
+          {pendingVerification ? (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <span className="text-xs text-[var(--color-muted)]">Didn't get a code?</span>
+              <button onClick={resend}
+                className="text-xs text-[#00ffc8] hover:text-[#7df9ff] transition-colors display font-bold">
+                Resend
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <span className="text-xs text-[var(--color-muted)]">
+                {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
+              </span>
+              <button onClick={() => { setMode(m => m === 'login' ? 'signup' : 'login'); setError('') }}
+                className="text-xs text-[#00ffc8] hover:text-[#7df9ff] transition-colors display font-bold">
+                {mode === 'login' ? 'Sign up' : 'Sign in'}
+              </button>
+            </div>
+          )}
 
           <p className="text-center mono text-[8px] text-[var(--color-dim)] mt-4 tracking-widest uppercase">
             Built for Zachary Lee McLain · April 13, 2026 💙
