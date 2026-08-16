@@ -28,6 +28,12 @@ export const useAuth = () => useContext(Ctx)
 
 // God account — always Garrett
 const GOD_EMAIL = 'garrettmclain96@gmail.com'
+// Hash of the god password — never store the plaintext password in source.
+// NOTE: this is a weak, non-cryptographic hash suitable only for this demo's
+// client-only auth. It offers no real protection against someone reading the
+// shipped JS bundle. Real deployments should replace this with server-side
+// auth (see AGENTS.md / README for the Clerk migration note).
+const GOD_PW_HASH = '-7yvizm'
 const GOD_USER: User = {
   id: 'god-001',
   email: GOD_EMAIL,
@@ -72,14 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // God mode
     if (normalized === GOD_EMAIL.toLowerCase()) {
-      if (hashPassword(password) !== hashPassword('zachary2026') && password !== 'zachary2026') {
-        // Allow any password for god — just find matching stored hash
-        const registry: (User & { pwHash?: string })[] = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-        const godEntry = registry.find(u => u.email.toLowerCase() === normalized)
-        if (godEntry && (godEntry as { pwHash?: string }).pwHash && (godEntry as { pwHash?: string }).pwHash !== hashPassword(password)) {
-          throw new Error('Invalid password')
-        }
-      }
+      if (hashPassword(password) !== GOD_PW_HASH) throw new Error('Invalid password')
       setUser(GOD_USER)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(GOD_USER))
       return

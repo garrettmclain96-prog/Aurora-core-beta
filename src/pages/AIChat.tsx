@@ -189,7 +189,7 @@ export function AIChat() {
 
       const assistantMsg: AssistantMsg = {
         role: 'assistant',
-        content: textContent || '',
+        content: textContent || (toolUses.length ? '' : 'AURORA had no response — try rephrasing.'),
         toolUses: toolUses.length ? toolUses : undefined,
         insight,
       }
@@ -214,7 +214,7 @@ export function AIChat() {
         <div className="flex items-center justify-between px-4 md:px-6 pt-4 pb-3 border-b border-[var(--color-border)]">
           <div>
             <h1 className="font-display font-bold text-lg text-[var(--color-text)] tracking-wide">AURORA Intelligence</h1>
-            <p className="text-[10px] text-[var(--color-muted)] font-display tracking-wide">Active decision-making core · Tool-augmented Claude Sonnet</p>
+            <p className="text-[10px] text-[var(--color-muted)] font-display tracking-wide">Active decision-making core · Tool-augmented Claude, Groq fallback</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[oklch(0.82_0.16_196_/_0.3)] bg-[oklch(0.82_0.16_196_/_0.06)]">

@@ -55,7 +55,7 @@ function StatCard({ icon: Icon, label, value, unit, sub, color, href }: {
       {sub && <div className="mono text-[9px] text-[var(--color-muted)] mt-1.5">{sub}</div>}
     </motion.div>
   )
-  return href ? <Link href={href}><a className="block">{inner}</a></Link> : inner
+  return href ? <Link href={href} className="block">{inner}</Link> : inner
 }
 
 export function Dashboard() {
@@ -167,42 +167,38 @@ export function Dashboard() {
 
           {/* Agents + Layers grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Link href="/agents">
-              <a className="card p-4 block hover:card-active transition-all group">
-                <SectionLabel>AI Agent Consensus</SectionLabel>
-                <div className="space-y-2.5">
-                  {agents.map(a => (
-                    <div key={a.id} className="flex items-center gap-3">
-                      <StatusDot status={a.status} />
-                      <span className="display font-semibold text-xs text-[var(--color-text)] w-22 flex-shrink-0">{a.name}</span>
-                      <span className="mono text-[10px] text-[var(--color-muted)] flex-1 truncate">{a.action}</span>
-                      <span className="mono text-xs flex-shrink-0 font-bold" style={{ color: a.color }}>{a.confidence}%</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center gap-1 mt-3 text-[10px] text-[#00ffc8] opacity-0 group-hover:opacity-100 transition-opacity">
-                  View all agents <ArrowUpRight className="w-3 h-3" />
-                </div>
-              </a>
+            <Link href="/agents" className="card p-4 block hover:card-active transition-all group">
+              <SectionLabel>AI Agent Consensus</SectionLabel>
+              <div className="space-y-2.5">
+                {agents.map(a => (
+                  <div key={a.id} className="flex items-center gap-3">
+                    <StatusDot status={a.status} />
+                    <span className="display font-semibold text-xs text-[var(--color-text)] w-22 flex-shrink-0">{a.name}</span>
+                    <span className="mono text-[10px] text-[var(--color-muted)] flex-1 truncate">{a.action}</span>
+                    <span className="mono text-xs flex-shrink-0 font-bold" style={{ color: a.color }}>{a.confidence}%</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 mt-3 text-[10px] text-[#00ffc8] opacity-0 group-hover:opacity-100 transition-opacity">
+                View all agents <ArrowUpRight className="w-3 h-3" />
+              </div>
             </Link>
 
-            <Link href="/layers">
-              <a className="card p-4 block hover:card-active transition-all group">
-                <SectionLabel>Cognitive Stack</SectionLabel>
-                <div className="space-y-2">
-                  {layers.map(l => (
-                    <div key={l.id} className="flex items-center gap-2.5">
-                      <StatusDot status={l.status as 'active' | 'conflict'} />
-                      <span className="mono text-[9px] text-[var(--color-dim)] w-18 flex-shrink-0">{l.abbr}</span>
-                      <span className="display text-xs text-[var(--color-text)] flex-1 truncate">{l.name}</span>
-                      <span className="mono text-[9px] flex-shrink-0 font-bold" style={{ color: l.color }}>{l.throughput}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center gap-1 mt-3 text-[10px] text-[#00ffc8] opacity-0 group-hover:opacity-100 transition-opacity">
-                  View all layers <ArrowUpRight className="w-3 h-3" />
-                </div>
-              </a>
+            <Link href="/layers" className="card p-4 block hover:card-active transition-all group">
+              <SectionLabel>Cognitive Stack</SectionLabel>
+              <div className="space-y-2">
+                {layers.map(l => (
+                  <div key={l.id} className="flex items-center gap-2.5">
+                    <StatusDot status={l.status as 'active' | 'conflict'} />
+                    <span className="mono text-[9px] text-[var(--color-dim)] w-18 flex-shrink-0">{l.abbr}</span>
+                    <span className="display text-xs text-[var(--color-text)] flex-1 truncate">{l.name}</span>
+                    <span className="mono text-[9px] flex-shrink-0 font-bold" style={{ color: l.color }}>{l.throughput}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 mt-3 text-[10px] text-[#00ffc8] opacity-0 group-hover:opacity-100 transition-opacity">
+                View all layers <ArrowUpRight className="w-3 h-3" />
+              </div>
             </Link>
           </div>
 
@@ -247,7 +243,7 @@ export function Dashboard() {
           </div>
 
           {/* AURORA CTA */}
-          <Link href="/chat">
+          <Link href="/chat" asChild>
             <motion.a whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
               className="card p-4 flex items-center gap-4 cursor-pointer group block"
               style={{ background: 'linear-gradient(135deg, #00ffc808, #9b5de508)', borderColor: '#00ffc820' }}>
@@ -256,7 +252,7 @@ export function Dashboard() {
               </div>
               <div className="flex-1">
                 <div className="display font-bold text-sm text-[var(--color-text)]">Ask AURORA</div>
-                <div className="mono text-[9px] text-[var(--color-muted)]">Active decision core · 3 tools · Groq Llama 3.1</div>
+                <div className="mono text-[9px] text-[var(--color-muted)]">Active decision core · 3 tools · Claude + Groq fallback</div>
               </div>
               <ArrowUpRight className="w-4 h-4 text-[#00ffc8] opacity-0 group-hover:opacity-100 transition-opacity" />
             </motion.a>

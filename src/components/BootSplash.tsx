@@ -17,10 +17,13 @@ export function BootSplash({ onDone }: { onDone: () => void }) {
   const [phase, setPhase] = useState<'boot' | 'logo' | 'dedicate'>('boot')
 
   useEffect(() => {
-    BOOT.forEach(item => setTimeout(() => setLines(p => [...p, item]), item.ms))
-    setTimeout(() => setPhase('logo'),     2300)
-    setTimeout(() => setPhase('dedicate'), 3100)
-    setTimeout(onDone,                     4400)
+    const timers = [
+      ...BOOT.map(item => setTimeout(() => setLines(p => [...p, item]), item.ms)),
+      setTimeout(() => setPhase('logo'),     2300),
+      setTimeout(() => setPhase('dedicate'), 3100),
+      setTimeout(onDone,                     4400),
+    ]
+    return () => timers.forEach(clearTimeout)
   }, [onDone])
 
   return (

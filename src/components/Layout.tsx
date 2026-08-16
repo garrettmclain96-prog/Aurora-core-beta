@@ -54,24 +54,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
   )
 
   const UserBadge = () => (
-    <Link href="/settings">
-      <a className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--color-elevated)] transition-colors cursor-pointer">
-        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-display font-black border ${
-          isGod ? 'border-[oklch(0.85_0.20_0_/_0.5)] bg-[oklch(0.85_0.20_0_/_0.12)] text-[oklch(0.90_0.18_0)]'
-                : 'border-[var(--color-borderhi)] bg-[var(--color-elevated)] text-[var(--color-cyan)]'
-        }`}>
-          {isGod ? '⚡' : user?.name?.[0]?.toUpperCase()}
-        </div>
-        {!collapsed && (
-          <div className="min-w-0">
-            <div className="text-[10px] font-display font-bold truncate" style={{ color: isGod ? 'oklch(0.90 0.18 0)' : 'var(--color-text)' }}>
-              {isGod ? 'God Mode' : user?.name}
-            </div>
-            <div className="text-[8px] text-[var(--color-dim)] truncate">{user?.role}</div>
+    <Link href="/settings" className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--color-elevated)] transition-colors cursor-pointer">
+      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-display font-black border ${
+        isGod ? 'border-[oklch(0.85_0.20_0_/_0.5)] bg-[oklch(0.85_0.20_0_/_0.12)] text-[oklch(0.90_0.18_0)]'
+              : 'border-[var(--color-borderhi)] bg-[var(--color-elevated)] text-[var(--color-cyan)]'
+      }`}>
+        {isGod ? '⚡' : user?.name?.[0]?.toUpperCase()}
+      </div>
+      {!collapsed && (
+        <div className="min-w-0">
+          <div className="text-[10px] font-display font-bold truncate" style={{ color: isGod ? 'oklch(0.90 0.18 0)' : 'var(--color-text)' }}>
+            {isGod ? 'God Mode' : user?.name}
           </div>
-        )}
-        {isGod && !collapsed && <Crown className="w-3 h-3 flex-shrink-0" style={{ color: 'oklch(0.85 0.20 0)' }} />}
-      </a>
+          <div className="text-[8px] text-[var(--color-dim)] truncate">{user?.role}</div>
+        </div>
+      )}
+      {isGod && !collapsed && <Crown className="w-3 h-3 flex-shrink-0" style={{ color: 'oklch(0.85 0.20 0)' }} />}
     </Link>
   )
 
@@ -103,11 +101,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {NAV.map(({ path, icon: Icon, label, divider }) => (
             <div key={path}>
               {divider && <div className="h-px bg-[var(--color-border)] my-2 mx-2" />}
-              <Link href={path}>
-                <a className={navClass(path, isActive(path))}>
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  {!collapsed && <span className="truncate font-display text-xs tracking-wide">{label}</span>}
-                </a>
+              <Link href={path} className={navClass(path, isActive(path))}>
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                {!collapsed && <span className="truncate font-display text-xs tracking-wide">{label}</span>}
               </Link>
             </div>
           ))}
@@ -157,16 +153,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
               const active = isActive(path)
               const godSettings = path === '/settings' && isGod
               return (
-                <Link key={path} href={path}>
-                  <a onClick={() => setDrawerOpen(false)}
-                    className={clsx('flex-1 flex flex-col items-center justify-center gap-0.5 px-1 transition-all active:scale-95',
-                      active
-                        ? godSettings ? 'text-[oklch(0.90_0.18_0)]' : 'text-[var(--color-cyan)]'
-                        : godSettings ? 'text-[oklch(0.70_0.15_0)]' : 'text-[var(--color-muted)]',
-                    )}>
-                    <Icon className="w-5 h-5" />
-                    <span className="text-[8px] font-display tracking-wide">{item.label}</span>
-                  </a>
+                <Link key={path} href={path} onClick={() => setDrawerOpen(false)}
+                  className={clsx('flex-1 flex flex-col items-center justify-center gap-0.5 px-1 transition-all active:scale-95',
+                    active
+                      ? godSettings ? 'text-[oklch(0.90_0.18_0)]' : 'text-[var(--color-cyan)]'
+                      : godSettings ? 'text-[oklch(0.70_0.15_0)]' : 'text-[var(--color-muted)]',
+                  )}>
+                  <Icon className="w-5 h-5" />
+                  <span className="text-[8px] font-display tracking-wide">{item.label}</span>
                 </Link>
               )
             })}
@@ -211,16 +205,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {NAV.map(({ path, icon: Icon, label, divider }) => (
                   <div key={path}>
                     {divider && <div className="h-px bg-[var(--color-border)] my-2 mx-1" />}
-                    <Link href={path}>
-                      <a onClick={() => setDrawerOpen(false)}
-                        className={clsx('flex items-center gap-3 px-3 py-3 rounded-lg transition-all',
-                          isActive(path)
-                            ? 'bg-[oklch(0.82_0.16_196_/_0.12)] text-[var(--color-cyan)] border border-[oklch(0.82_0.16_196_/_0.3)]'
-                            : 'text-[var(--color-muted)] hover:bg-[var(--color-elevated)]',
-                        )}>
-                        <Icon className="w-5 h-5 flex-shrink-0" />
-                        <span className="font-display text-sm font-medium">{label}</span>
-                      </a>
+                    <Link href={path} onClick={() => setDrawerOpen(false)}
+                      className={clsx('flex items-center gap-3 px-3 py-3 rounded-lg transition-all',
+                        isActive(path)
+                          ? 'bg-[oklch(0.82_0.16_196_/_0.12)] text-[var(--color-cyan)] border border-[oklch(0.82_0.16_196_/_0.3)]'
+                          : 'text-[var(--color-muted)] hover:bg-[var(--color-elevated)]',
+                      )}>
+                      <Icon className="w-5 h-5 flex-shrink-0" />
+                      <span className="font-display text-sm font-medium">{label}</span>
                     </Link>
                   </div>
                 ))}
