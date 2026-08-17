@@ -3,7 +3,7 @@ export const config = { runtime: 'nodejs' }
 import { clerkClient, requireUser, roleOf, serializeUser, json } from './_clerk'
 
 // Called once after a successful sign-in/sign-up. Ensures the caller has a
-// role in Clerk publicMetadata: the hardcoded GOD_EMAIL always resolves to
+// role in Clerk publicMetadata: the configured god account always resolves to
 // 'god' (see roleOf in _clerk.ts), everyone else defaults to 'viewer' the
 // first time they're seen. Never lets a caller pick their own role.
 export default async function handler(req: Request): Promise<Response> {

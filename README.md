@@ -42,11 +42,15 @@ and relay control won't function without `vercel dev` or a real deployment.)
 - `VITE_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` — auth. Get both from
   your [Clerk Dashboard](https://clerk.com) → API Keys. The publishable key
   is also accepted as `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, the name Clerk's
-  dashboard displays, so it can be pasted across unchanged. The account whose
-  verified email matches `GOD_EMAIL` in `api/_clerk.ts` is automatically
-  granted the top `god` role on first sign-in; everyone else starts as
-  `viewer`. Only `god` can promote/demote accounts to `admin`
-  (Settings → Users tab).
+  dashboard displays, so it can be pasted across unchanged.
+- `GOD_USER_ID` (recommended) or `GOD_EMAIL` — which account is granted the
+  top `god` role automatically on first sign-in; everyone else starts as
+  `viewer`, and only a `god` can promote/demote accounts to `admin`
+  (Settings → Users tab). Prefer `GOD_USER_ID` (a Clerk `user_...` id):
+  it's immutable, so it survives an email change and binds correctly no
+  matter which address you signed up with. Both are checked server-side
+  against the Clerk user record, never from client input; defaults live in
+  `api/_clerk.ts`.
 - `ANTHROPIC_API_KEY` / `GROQ_API_KEY` — AI chat (Anthropic first, Groq as
   a free fallback).
 - `OPENAI_API_KEY` — JARVIS voice mode (Whisper + GPT-4o-mini + TTS).

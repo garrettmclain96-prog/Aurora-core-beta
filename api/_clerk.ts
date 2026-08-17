@@ -1,10 +1,16 @@
 import { createClerkClient, verifyToken, type User } from '@clerk/backend'
 
 // The account that is always granted the top 'god' role, regardless of what
-// role is currently stored in Clerk. Matched case-insensitively against the
-// verified primary email on the Clerk user record — never trust a
-// client-supplied email for this check.
-export const GOD_EMAIL = 'garrettmclain96@gmail.com'
+// role is currently stored in Clerk. Both checks read the server-side Clerk
+// user record — never a client-supplied value.
+//
+// GOD_USER_ID is the more reliable of the two: a Clerk user id is immutable,
+// so it keeps working if the account's email changes, and it sidesteps the
+// chicken-and-egg problem where signing up under an unexpected address leaves
+// you a viewer with nobody able to promote you (only a god can grant roles).
+// GOD_EMAIL is kept as the fallback so existing deployments are unaffected.
+export const GOD_USER_ID = process.env.GOD_USER_ID ?? ''
+export const GOD_EMAIL = (process.env.GOD_EMAIL ?? 'garrettmclain96@gmail.com').toLowerCase()
 
 export type UserRole = 'god' | 'admin' | 'viewer'
 
@@ -26,6 +32,7 @@ export function primaryEmail(user: User): string | null {
 }
 
 export function roleOf(user: User): UserRole {
+  if (GOD_USER_ID && user.id === GOD_USER_ID) return 'god'
   if (primaryEmail(user) === GOD_EMAIL) return 'god'
   const stored = user.publicMetadata?.role
   return stored === 'admin' ? 'admin' : 'viewer'
