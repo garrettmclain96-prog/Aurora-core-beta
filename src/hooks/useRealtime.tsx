@@ -1,10 +1,19 @@
 /**
- * useRealtime — live sensor state.
+ * useRealtime — live sensor state, shared across the whole app via context.
  * Primary: polls /api/ingest for real ESP32 telemetry every 3s.
  * Fallback: simulation when no hardware connected.
  * Never surfaces the difference to consumers — same LiveMetrics shape either way.
+ *
+ * A single RealtimeProvider (mounted once, in App.tsx) owns the interval and
+ * the poll loop; every useRealtime() call just reads the shared value. This
+ * used to be a self-contained hook that every consumer (Layout, Dashboard,
+ * ArchangelPanel, PillarsPanel, AIChat, JarvisOrb) instantiated independently
+ * — six separate timers, six separate /api/ingest polls every 3s, and six
+ * separate simulated data streams that could silently drift apart (e.g. the
+ * header ticker showing a different temperature than the dashboard at the
+ * same instant).
  */
-import { useState, useEffect, useRef } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import type { LiveMetrics } from '../types'
 
 const SIM_BASE: LiveMetrics = {
@@ -68,7 +77,9 @@ function snapshotToMetrics(snap: IngestSnapshot, prev: LiveMetrics, tick: number
   }
 }
 
-export function useRealtime(): LiveMetrics {
+const RealtimeCtx = createContext<LiveMetrics>(SIM_BASE)
+
+export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const [metrics, setMetrics] = useState<LiveMetrics>(SIM_BASE)
   const simRef   = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -114,5 +125,9 @@ export function useRealtime(): LiveMetrics {
     }
   }, [])
 
-  return metrics
+  return <RealtimeCtx.Provider value={metrics}>{children}</RealtimeCtx.Provider>
+}
+
+export function useRealtime(): LiveMetrics {
+  return useContext(RealtimeCtx)
 }

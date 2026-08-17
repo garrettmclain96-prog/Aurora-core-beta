@@ -41,41 +41,50 @@ function CodeBlock({ code, lang = 'bash', title }: { code: string; lang?: string
   )
 }
 
-// Minimal syntax highlighter
+// Minimal syntax highlighter. Escapes once, then tokenizes in a single pass
+// via one alternation regex per language — chaining separate .replace()
+// calls (the previous approach) lets a later rule re-match text a earlier
+// rule just injected (e.g. the "#2a5a3a" inside an already-wrapped
+// style="color:#2a5a3a" attribute gets matched again as a "comment" or a
+// "string"), corrupting the markup.
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function span(text: string, color: string): string {
+  return `<span style="color:${color}">${text}</span>`
+}
+
+function tokenize(code: string, rx: RegExp, colorFor: (groups: (string | undefined)[]) => string | null): string {
+  return escapeHtml(code).replace(rx, (match, ...rest) => {
+    const groups = rest.slice(0, -2) as (string | undefined)[] // drop offset + full string args
+    const color = colorFor(groups)
+    return color ? span(match, color) : match
+  })
+}
+
 function highlight(code: string, lang: string): string {
   if (lang === 'bash' || lang === 'sh') {
-    return code
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/(#.+)/g, '<span style="color:#2a5a3a">$1</span>')
-      .replace(/(".*?")/g, '<span style="color:#ffd60a">$1</span>')
-      .replace(/\b(curl|node|python|export|cd|npm|pip)\b/g, '<span style="color:#00ffc8">$1</span>')
-      .replace(/(--\w[\w-]*|-[A-Za-z])\b/g, '<span style="color:#9b5de5">$1</span>')
+    const rx = /(#.*)|(".*?")|(\b(?:curl|node|python|export|cd|npm|pip)\b)|(--\w[\w-]*|-[A-Za-z]\b)/g
+    return tokenize(code, rx, ([comment, str, keyword, flag]) =>
+      comment ? '#2a5a3a' : str ? '#ffd60a' : keyword ? '#00ffc8' : flag ? '#9b5de5' : null)
   }
   if (lang === 'json') {
-    return code
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/(".*?")\s*:/g, '<span style="color:#7df9ff">$1</span>:')
-      .replace(/:\s*(".*?")/g, ': <span style="color:#ffd60a">$1</span>')
-      .replace(/:\s*(\d+\.?\d*)/g, ': <span style="color:#39ff14">$1</span>')
-      .replace(/:\s*(true|false|null)/g, ': <span style="color:#ff6b35">$1</span>')
+    const rx = /(".*?")(?=\s*:)|(?<=:\s*)(".*?")|(?<=:\s*)(\d+\.?\d*)|(?<=:\s*)(true|false|null)/g
+    return tokenize(code, rx, ([key, str, num, bool]) =>
+      key ? '#7df9ff' : str ? '#ffd60a' : num ? '#39ff14' : bool ? '#ff6b35' : null)
   }
   if (lang === 'ts' || lang === 'typescript') {
-    return code
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/(\/\/.+)/g, '<span style="color:#2a5a3a">$1</span>')
-      .replace(/(".*?"|'.*?'|`.*?`)/g, '<span style="color:#ffd60a">$1</span>')
-      .replace(/\b(import|from|export|const|let|await|async|new|return|interface|type|class)\b/g, '<span style="color:#9b5de5">$1</span>')
-      .replace(/\b(AuroraClient|aurora)\b/g, '<span style="color:#00ffc8">$1</span>')
+    const rx = /(\/\/.*)|(".*?"|'.*?'|`.*?`)|(\b(?:import|from|export|const|let|await|async|new|return|interface|type|class)\b)|(\b(?:AuroraClient|aurora)\b)/g
+    return tokenize(code, rx, ([comment, str, keyword, ident]) =>
+      comment ? '#2a5a3a' : str ? '#ffd60a' : keyword ? '#9b5de5' : ident ? '#00ffc8' : null)
   }
   if (lang === 'python') {
-    return code
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/(#.+)/g, '<span style="color:#2a5a3a">$1</span>')
-      .replace(/(".*?"|'.*?')/g, '<span style="color:#ffd60a">$1</span>')
-      .replace(/\b(import|from|def|class|return|await|async|if|for|print)\b/g, '<span style="color:#9b5de5">$1</span>')
-      .replace(/\b(AuroraClient|aurora)\b/g, '<span style="color:#00ffc8">$1</span>')
+    const rx = /(#.*)|(".*?"|'.*?')|(\b(?:import|from|def|class|return|await|async|if|for|print)\b)|(\b(?:AuroraClient|aurora)\b)/g
+    return tokenize(code, rx, ([comment, str, keyword, ident]) =>
+      comment ? '#2a5a3a' : str ? '#ffd60a' : keyword ? '#9b5de5' : ident ? '#00ffc8' : null)
   }
-  return code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return escapeHtml(code)
 }
 
 // ── Endpoint card component ──────────────────────────────────────────────────

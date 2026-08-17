@@ -4,9 +4,11 @@ import { AnimatePresence } from 'framer-motion'
 import { Analytics } from '@vercel/analytics/react'
 import { AuthProvider, useAuth } from './lib/auth'
 import { ToastProvider } from './lib/toast'
+import { RealtimeProvider } from './hooks/useRealtime'
 import { Layout } from './components/Layout'
 import { BootSplash } from './components/BootSplash'
 import { AuthScreen } from './components/AuthScreen'
+import { WelcomeBack } from './components/WelcomeBack'
 
 const Dashboard       = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })))
 const CognitiveLayers = lazy(() => import('./pages/CognitiveLayers').then(m => ({ default: m.CognitiveLayers })))
@@ -46,36 +48,39 @@ function AppInner() {
   if (!user)                return <RouteFallback />
 
   return (
-    <Layout>
-      <Suspense fallback={<RouteFallback />}>
-        <Switch>
-          <Route path="/"             component={Dashboard}       />
-          <Route path="/layers"       component={CognitiveLayers} />
-          <Route path="/agents"       component={AgentPanel}      />
-          <Route path="/circuits"     component={CircuitMonitor}  />
-          <Route path="/battery"      component={BatteryPanel}    />
-          <Route path="/simulation"   component={Simulation}      />
-          <Route path="/turnbot"      component={TurnBotPanel}    />
-          <Route path="/chat"         component={AIChat}          />
-          <Route path="/alerts"       component={Alerts}          />
-          <Route path="/integrations" component={Integrations}    />
-          <Route path="/dev"          component={DevPortal}       />
-          <Route path="/archangel"    component={ArchangelPanel}  />
-          <Route path="/pillars"      component={PillarsPanel}    />
-          <Route path="/sovereign"    component={SovereignEngine} />
-          <Route path="/jarvis"       component={JarvisPanel}     />
-          <Route path="/manifesto"    component={Manifesto}       />
-          <Route path="/legacy"       component={Legacy}          />
-          <Route path="/settings"     component={Settings}        />
-          <Route>
-            <div className="flex items-center justify-center h-full text-[var(--color-muted)] font-display">
-              404 · Page not found
-            </div>
-          </Route>
-        </Switch>
-        <JarvisOrb />
-      </Suspense>
-    </Layout>
+    <RealtimeProvider>
+      <WelcomeBack />
+      <Layout>
+        <Suspense fallback={<RouteFallback />}>
+          <Switch>
+            <Route path="/"             component={Dashboard}       />
+            <Route path="/layers"       component={CognitiveLayers} />
+            <Route path="/agents"       component={AgentPanel}      />
+            <Route path="/circuits"     component={CircuitMonitor}  />
+            <Route path="/battery"      component={BatteryPanel}    />
+            <Route path="/simulation"   component={Simulation}      />
+            <Route path="/turnbot"      component={TurnBotPanel}    />
+            <Route path="/chat"         component={AIChat}          />
+            <Route path="/alerts"       component={Alerts}          />
+            <Route path="/integrations" component={Integrations}    />
+            <Route path="/dev"          component={DevPortal}       />
+            <Route path="/archangel"    component={ArchangelPanel}  />
+            <Route path="/pillars"      component={PillarsPanel}    />
+            <Route path="/sovereign"    component={SovereignEngine} />
+            <Route path="/jarvis"       component={JarvisPanel}     />
+            <Route path="/manifesto"    component={Manifesto}       />
+            <Route path="/legacy"       component={Legacy}          />
+            <Route path="/settings"     component={Settings}        />
+            <Route>
+              <div className="flex items-center justify-center h-full text-[var(--color-muted)] font-display">
+                404 · Page not found
+              </div>
+            </Route>
+          </Switch>
+          <JarvisOrb />
+        </Suspense>
+      </Layout>
+    </RealtimeProvider>
   )
 }
 
