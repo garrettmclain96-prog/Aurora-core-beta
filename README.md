@@ -40,7 +40,9 @@ and relay control won't function without `vercel dev` or a real deployment.)
 
 **Required env vars** (`.env.example` has the full list with comments):
 - `VITE_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` — auth. Get both from
-  your [Clerk Dashboard](https://clerk.com) → API Keys. The account whose
+  your [Clerk Dashboard](https://clerk.com) → API Keys. The publishable key
+  is also accepted as `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, the name Clerk's
+  dashboard displays, so it can be pasted across unchanged. The account whose
   verified email matches `GOD_EMAIL` in `api/_clerk.ts` is automatically
   granted the top `god` role on first sign-in; everyone else starts as
   `viewer`. Only `god` can promote/demote accounts to `admin`
