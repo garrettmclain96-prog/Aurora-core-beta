@@ -39,10 +39,12 @@ vercel dev
 and relay control won't function without `vercel dev` or a real deployment.)
 
 **Required env vars** (`.env.example` has the full list with comments):
-- `VITE_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` — auth. Get both from
-  your [Clerk Dashboard](https://clerk.com) → API Keys. The publishable key
-  is also accepted as `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, the name Clerk's
-  dashboard displays, so it can be pasted across unchanged.
+- `CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` — auth. Get both from your
+  [Clerk Dashboard](https://clerk.com) → API Keys. The publishable key is
+  accepted as `CLERK_PUBLISHABLE_KEY`, `VITE_CLERK_PUBLISHABLE_KEY`, or
+  `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, so it works whichever form you
+  copied. It's resolved at build time (see `vite.config.ts`), so changing
+  it requires a redeploy. The secret key is never exposed to the browser.
 - `GOD_USER_ID` (recommended) or `GOD_EMAIL` — which account is granted the
   top `god` role automatically on first sign-in; everyone else starts as
   `viewer`, and only a `god` can promote/demote accounts to `admin`
