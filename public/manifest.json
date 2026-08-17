@@ -1,0 +1,31 @@
+{
+  "name": "Aurora Core",
+  "short_name": "Aurora",
+  "description": "AI-Orchestrated Cognitive Energy Ecosystem",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020508",
+  "theme_color": "#020508",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/",
+      "description": "Aurora Core Dashboard"
+    },
+    {
+      "name": "JARVIS",
+      "url": "/jarvis",
+      "description": "Talk to JARVIS"
+    }
+  ]
+}

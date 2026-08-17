@@ -1,4 +1,4 @@
-import type { LiveMetrics } from '../lib/useRealtime'
+import type { LiveMetrics } from '../types'
 
 type Props = { metrics: LiveMetrics }
 

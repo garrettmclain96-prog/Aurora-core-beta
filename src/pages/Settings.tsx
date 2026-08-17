@@ -9,6 +9,7 @@ const ROLE_META: Record<UserRole, { label: string; color: string; icon: typeof C
   god:    { label: 'God',    color: 'oklch(0.85 0.20 0)',   icon: Crown,     desc: 'Full system access. Cannot be modified.' },
   admin:  { label: 'Admin',  color: 'var(--color-cyan)',    icon: Shield,    desc: 'Can modify settings and view all data.' },
   viewer: { label: 'Viewer', color: 'var(--color-muted)',   icon: Eye,       desc: 'Read-only access to dashboards.' },
+  guest:  { label: 'Guest',  color: 'var(--color-dim)',     icon: Eye,       desc: 'Temporary read-only session. No account required.' },
 }
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {

@@ -3,12 +3,12 @@ import { Link, useLocation } from 'wouter'
 import {
   LayoutDashboard, Layers, Brain, Zap, Battery, FlaskConical,
   Radio, MessageSquare, Bell, ChevronLeft, ChevronRight,
-  Activity, Menu, X, Heart, BookOpen, ExternalLink, Settings, Crown,
+  Activity, Menu, X, Heart, BookOpen, ExternalLink, Settings, Crown, Shield, Scale, Cpu, Bot, Code2,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { AuroraBackground } from './AuroraBackground'
 import { DataTicker } from './DataTicker'
-import { useRealtime } from '../lib/useRealtime'
+import { useRealtime } from '../hooks/useRealtime'
 import { useAuth } from '../lib/auth'
 
 const NAV = [
@@ -22,6 +22,11 @@ const NAV = [
   { path: '/chat',         icon: MessageSquare,   label: 'AI Chat'      },
   { path: '/alerts',       icon: Bell,            label: 'Alerts'       },
   { path: '/integrations', icon: ExternalLink,    label: 'Integrations', divider: true },
+  { path: '/dev',          icon: Code2,           label: 'Dev Portal'   },
+  { path: '/archangel',    icon: Shield,          label: 'ARCHANGEL'    },
+  { path: '/pillars',      icon: Scale,           label: 'XIII PILLARS' },
+  { path: '/sovereign',    icon: Cpu,             label: 'SOVEREIGN'    },
+  { path: '/jarvis',       icon: Bot,             label: 'JARVIS'       },
   { path: '/manifesto',    icon: BookOpen,        label: 'Manifesto'    },
   { path: '/legacy',       icon: Heart,           label: 'Legacy'       },
   { path: '/settings',     icon: Settings,        label: 'Settings'     },

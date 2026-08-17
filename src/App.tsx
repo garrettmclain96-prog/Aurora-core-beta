@@ -1,6 +1,7 @@
 import { useState, useCallback, Suspense, lazy } from 'react'
 import { Route, Switch } from 'wouter'
 import { AnimatePresence } from 'framer-motion'
+import { Analytics } from '@vercel/analytics/react'
 import { AuthProvider, useAuth } from './lib/auth'
 import { ToastProvider } from './lib/toast'
 import { Layout } from './components/Layout'
@@ -20,6 +21,12 @@ const Integrations    = lazy(() => import('./pages/Integrations').then(m => ({ d
 const Manifesto       = lazy(() => import('./pages/Manifesto').then(m => ({ default: m.Manifesto })))
 const Legacy           = lazy(() => import('./pages/Legacy').then(m => ({ default: m.Legacy })))
 const Settings         = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })))
+const ArchangelPanel   = lazy(() => import('./pages/ArchangelPanel').then(m => ({ default: m.ArchangelPanel })))
+const PillarsPanel     = lazy(() => import('./pages/PillarsPanel').then(m => ({ default: m.PillarsPanel })))
+const DevPortal        = lazy(() => import('./pages/DevPortal').then(m => ({ default: m.DevPortal })))
+const SovereignEngine  = lazy(() => import('./components/SovereignEngine'))
+const JarvisPanel      = lazy(() => import('./pages/JarvisPanel').then(m => ({ default: m.JarvisPanel })))
+const JarvisOrb        = lazy(() => import('./components/JarvisOrb'))
 
 function RouteFallback() {
   return (
@@ -30,12 +37,12 @@ function RouteFallback() {
 }
 
 function AppInner() {
-  const { user, isLoaded, isSignedIn } = useAuth()
+  const { user, isLoaded, isAuthenticated } = useAuth()
   const [booted, setBooted] = useState(false)
   const handleBootDone = useCallback(() => setBooted(true), [])
 
   if (!booted || !isLoaded) return <BootSplash onDone={handleBootDone} />
-  if (!isSignedIn)          return <AuthScreen />
+  if (!isAuthenticated)     return <AuthScreen />
   if (!user)                return <RouteFallback />
 
   return (
@@ -52,6 +59,11 @@ function AppInner() {
           <Route path="/chat"         component={AIChat}          />
           <Route path="/alerts"       component={Alerts}          />
           <Route path="/integrations" component={Integrations}    />
+          <Route path="/dev"          component={DevPortal}       />
+          <Route path="/archangel"    component={ArchangelPanel}  />
+          <Route path="/pillars"      component={PillarsPanel}    />
+          <Route path="/sovereign"    component={SovereignEngine} />
+          <Route path="/jarvis"       component={JarvisPanel}     />
           <Route path="/manifesto"    component={Manifesto}       />
           <Route path="/legacy"       component={Legacy}          />
           <Route path="/settings"     component={Settings}        />
@@ -61,6 +73,7 @@ function AppInner() {
             </div>
           </Route>
         </Switch>
+        <JarvisOrb />
       </Suspense>
     </Layout>
   )
@@ -73,6 +86,7 @@ export default function App() {
         <AnimatePresence>
           <AppInner />
         </AnimatePresence>
+        <Analytics />
       </ToastProvider>
     </AuthProvider>
   )

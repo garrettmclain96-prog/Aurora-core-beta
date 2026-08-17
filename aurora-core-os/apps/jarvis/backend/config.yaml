@@ -1,0 +1,88 @@
+application:
+  log_format: "%(asctime)s %(levelname)s %(name)s — %(message)s"
+  log_level: INFO
+  name: JARVIS — Aurora Core
+  tts_enabled: true
+
+asr:
+  engine: whisper
+  mode: server
+  vosk:
+    lang: en
+    model_path: pretrained_models/vosk/model
+    models:
+      en: pretrained_models/vosk/model_en
+  whisper:
+    compute_type: int8
+    device: cpu        # CM4 uses CPU (no GPU)
+    model_size: tiny
+
+home_assistant:
+  enabled: true
+  token: ''            # Set via HASS_TOKEN env var
+  url: http://localhost:8123
+
+llm:
+  provider: gemini     # gemini | local | ollama-cloud
+  context_window: 10240
+  base_url: http://localhost:8000/v1
+  local:
+    repo_id:  "unsloth/functiongemma-270m-it-GGUF"
+    filename: "functiongemma-270m-it-Q4_K_M.gguf"
+    local_dir: pretrained_models/llm
+    model_alias: Gemma
+  gemini:
+    model: gemini-2.5-flash
+  ollama_cloud:
+    base_url: https://ollama.com
+    model: gpt-oss:20b-cloud
+
+mcp:
+  servers:
+    weather:
+      transport: sse
+      url: http://127.0.0.1:4004/messages
+
+# Aurora Core RV integration
+aurora:
+  enabled: true
+  api_url: http://localhost:3000   # Aurora Core Node.js server on CM4
+  mqtt_broker: localhost:1883
+
+openwb:
+  enabled: false
+  ip: 192.168.1.74
+
+spotify:
+  redirect_uri: http://127.0.0.1:8888/callback
+
+tts:
+  engine: elevenlabs
+  elevenlabs:
+    model_id: eleven_flash_v2_5
+    similarity_boost: 0.75
+    stability: 0.5
+    voice_id: 3ykCLzjor6Ws3YQsVXP9
+  kokoro:
+    lang_code: a
+    sample_rate: 24000
+    voice: am_liam
+
+tools:
+  # Aurora Core RV tools (always enabled)
+  aurora_status: true
+  aurora_control: true
+  # Standard tools
+  weather: true
+  web_search: true
+  wikipedia: true
+  calculator: true
+  news: true
+  translator: true
+  currency: true
+  home_assistant: true
+  system: true
+  # RV-irrelevant tools disabled by default
+  spotify: false
+  openwb: false
+  roborock: false

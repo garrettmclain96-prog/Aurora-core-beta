@@ -6,7 +6,7 @@ import {
   useSignUp,
 } from '@clerk/clerk-react'
 
-export type UserRole = 'god' | 'admin' | 'viewer'
+export type UserRole = 'god' | 'admin' | 'viewer' | 'guest'
 
 export type User = {
   id: string
@@ -21,17 +21,20 @@ type AuthCtx = {
   user: User | null
   users: User[]
   isLoaded: boolean
-  isSignedIn: boolean
+  isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
   signup: (email: string, password: string, name: string) => Promise<void>
   verifyEmail: (code: string) => Promise<void>
   resendVerification: () => Promise<void>
   pendingVerification: boolean
+  loginAsGuest: () => void
   logout: () => void
   isGod: boolean
   isAdmin: boolean
   updateUserRole: (id: string, role: UserRole) => Promise<void>
   refreshUsers: () => Promise<void>
+  /** Fetch helper that attaches the current Clerk session token. Throws on non-2xx. */
+  authedFetch: (path: string, init?: RequestInit) => Promise<unknown>
   error: string | null
 }
 
@@ -49,11 +52,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { signIn, setActive: setActiveSignIn } = useSignIn()
   const { signUp, setActive: setActiveSignUp } = useSignUp()
 
-  const [user, setUser] = useState<User | null>(null)
+  const [resolvedUser, setResolvedUser] = useState<User | null>(null)
+  const [guestUser, setGuestUser] = useState<User | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [pendingVerification, setPendingVerification] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const bootstrappedFor = useRef<string | null>(null)
+
+  const user = guestUser ?? resolvedUser
+  const isAuthenticated = !!isSignedIn || !!guestUser
 
   const authedFetch = useCallback(async (path: string, init?: RequestInit) => {
     const token = await getToken()
@@ -71,29 +78,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Resolve (and if needed, bootstrap) this session's role exactly once per sign-in.
   useEffect(() => {
     if (!clerkLoaded || !isSignedIn || !clerkUser) {
-      setUser(null)
+      setResolvedUser(null)
       bootstrappedFor.current = null
       return
     }
     if (bootstrappedFor.current === clerkUser.id) return
     bootstrappedFor.current = clerkUser.id
     authedFetch('/api/bootstrap-role', { method: 'POST' })
-      .then((u: User) => setUser(u))
+      .then((u) => setResolvedUser(u as User))
       .catch(e => setError(extractError(e)))
   }, [clerkLoaded, isSignedIn, clerkUser, authedFetch])
 
   const refreshUsers = useCallback(async () => {
     try {
       const list = await authedFetch('/api/users')
-      setUsers(list)
+      setUsers(list as User[])
     } catch (e) {
       setError(extractError(e))
     }
   }, [authedFetch])
 
   useEffect(() => {
-    if (user && (user.role === 'god' || user.role === 'admin')) refreshUsers()
-  }, [user, refreshUsers])
+    if (resolvedUser && (resolvedUser.role === 'god' || resolvedUser.role === 'admin')) refreshUsers()
+  }, [resolvedUser, refreshUsers])
 
   const login = async (email: string, password: string) => {
     setError(null)
@@ -157,19 +164,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const loginAsGuest = () => {
+    setError(null)
+    setGuestUser({
+      id: 'guest-' + Date.now(),
+      email: 'guest@aurora.core',
+      name: 'Guest',
+      role: 'guest',
+      avatar: '👁',
+      joinedAt: new Date().toISOString().split('T')[0],
+    })
+  }
+
   const logout = () => {
-    setUser(null)
+    setGuestUser(null)
+    setResolvedUser(null)
     setUsers([])
     bootstrappedFor.current = null
-    void signOut()
+    if (isSignedIn) void signOut()
   }
 
   const updateUserRole = async (id: string, role: UserRole) => {
     try {
-      const updated: User = await authedFetch('/api/update-role', {
+      const updated = await authedFetch('/api/update-role', {
         method: 'POST',
         body: JSON.stringify({ userId: id, role }),
-      })
+      }) as User
       setUsers(prev => prev.map(u => u.id === updated.id ? updated : u))
     } catch (e) {
       setError(extractError(e))
@@ -178,11 +198,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      user, users, isLoaded: clerkLoaded, isSignedIn: !!isSignedIn,
-      login, signup, verifyEmail, resendVerification, pendingVerification, logout,
+      user, users, isLoaded: clerkLoaded, isAuthenticated,
+      login, signup, verifyEmail, resendVerification, pendingVerification,
+      loginAsGuest, logout,
       isGod: user?.role === 'god',
       isAdmin: user?.role === 'god' || user?.role === 'admin',
-      updateUserRole, refreshUsers, error,
+      updateUserRole, refreshUsers, authedFetch, error,
     }}>
       {children}
     </Ctx.Provider>

@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  createdAt     DateTime       @default(now())
+  installations Installation[]
+  apiKeys       ApiKey[]
+}
+
+model ApiKey {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  installationId String?
+  installation   Installation? @relation(fields: [installationId], references: [id])
+  hashedKey      String        @unique
+  prefix         String
+  label          String        @default("Default")
+  scopes         String[]      @default(["events:write","state:read","actions:write"])
+  createdAt      DateTime      @default(now())
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+}
+
+model Installation {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id])
+  name        String
+  timezone    String     @default("UTC")
+  createdAt   DateTime   @default(now())
+  sensors     Sensor[]
+  devices     Device[]
+  events      Event[]
+  actions     Action[]
+  insights    Insight[]
+  apiKeys     ApiKey[]
+  mode        ModeConfig?
+  audits      AuditLog[]
+  webhooks    Webhook[]
+}
+
+enum Domain {
+  ENERGY
+  BIOMETRIC
+  ENVIRONMENT
+}
+
+model Sensor {
+  id             String       @id @default(cuid())
+  installationId String
+  installation   Installation @relation(fields: [installationId], references: [id])
+  domain         Domain
+  kind           String
+  unit           String
+  meta           Json?
+  events         Event[]
+}
+
+model Device {
+  id             String       @id @default(cuid())
+  installationId String
+  installation   Installation @relation(fields: [installationId], references: [id])
+  kind           String
+  label          String
+  state          Json         @default("{}")
+  online         Boolean      @default(true)
+  actions        Action[]
+}
+
+model Event {
+  id             String       @id @default(cuid())
+  installationId String
+  installation   Installation @relation(fields: [installationId], references: [id])
+  sensorId       String?
+  sensor         Sensor?      @relation(fields: [sensorId], references: [id])
+  domain         Domain
+  kind           String
+  value          Float
+  payload        Json?
+  ts             DateTime     @default(now())
+  @@index([installationId, ts])
+  @@index([installationId, domain])
+}
+
+enum ActionStatus {
+  PENDING
+  SENT
+  ACKED
+  FAILED
+}
+
+model Action {
+  id             String       @id @default(cuid())
+  installationId String
+  installation   Installation @relation(fields: [installationId], references: [id])
+  deviceId       String
+  device         Device       @relation(fields: [deviceId], references: [id])
+  command        String
+  args           Json?
+  reason         String
+  status         ActionStatus @default(PENDING)
+  attempts       Int          @default(0)
+  createdAt      DateTime     @default(now())
+  ackedAt        DateTime?
+}
+
+model Insight {
+  id             String       @id @default(cuid())
+  installationId String
+  installation   Installation @relation(fields: [installationId], references: [id])
+  score          Int
+  breakdown      Json
+  signals        Json
+  ts             DateTime     @default(now())
+  @@index([installationId, ts])
+}
+
+model ModeConfig {
+  id             String       @id @default(cuid())
+  installationId String       @unique
+  installation   Installation @relation(fields: [installationId], references: [id])
+  active         String       @default("habitat_optimizer")
+  thresholds     Json         @default("{}")
+  updatedAt      DateTime     @updatedAt
+}
+
+model Webhook {
+  id             String       @id @default(cuid())
+  installationId String
+  installation   Installation @relation(fields: [installationId], references: [id])
+  url            String
+  secret         String
+  events         String[]     @default(["*"])
+  label          String       @default("")
+  enabled        Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  lastFiredAt    DateTime?
+  lastStatus     Int?
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  installationId String
+  installation   Installation @relation(fields: [installationId], references: [id])
+  actor          String
+  action         String
+  target         String?
+  meta           Json?
+  ts             DateTime     @default(now())
+  @@index([installationId, ts])
+}

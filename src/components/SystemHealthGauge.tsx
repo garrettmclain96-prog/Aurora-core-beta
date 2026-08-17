@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import type { LiveMetrics } from '../lib/useRealtime'
+import type { LiveMetrics } from '../types'
 
 function Arc({ value, max = 100, color, size, strokeWidth, startAngle, sweepAngle, label, sublabel }: {
   value: number; max?: number; color: string; size: number; strokeWidth: number

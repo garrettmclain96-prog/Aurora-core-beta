@@ -1,0 +1,6 @@
+{
+  "buildCommand": "pnpm --filter @aurora/sdk build && pnpm --filter @aurora/web build",
+  "outputDirectory": "apps/web/.next",
+  "installCommand": "pnpm install",
+  "framework": "nextjs"
+}

@@ -1,14 +1,16 @@
-import { clerkClient, requireUser, roleOf, serializeUser, type VercelRequest, type VercelResponse } from './_clerk'
+export const config = { runtime: 'nodejs' }
+
+import { clerkClient, requireUser, roleOf, serializeUser, json } from './_clerk'
 
 // Lists all accounts for the admin panel. God/admin only.
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
+export default async function handler(req: Request): Promise<Response> {
+  if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405)
 
   const caller = await requireUser(req)
-  if (!caller) return res.status(401).json({ error: 'Unauthorized' })
+  if (!caller) return json({ error: 'Unauthorized' }, 401)
   const callerRole = roleOf(caller)
-  if (callerRole !== 'god' && callerRole !== 'admin') return res.status(403).json({ error: 'Forbidden' })
+  if (callerRole !== 'god' && callerRole !== 'admin') return json({ error: 'Forbidden' }, 403)
 
   const { data } = await clerkClient().users.getUserList({ limit: 100 })
-  return res.status(200).json(data.map(serializeUser))
+  return json(data.map(serializeUser))
 }

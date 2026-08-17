@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base ─────────────────────────────────────────────────── */
+:root { color-scheme: dark; }
+
+html, body {
+  background: #03060a;
+  color: #d6f7ee;
+}
+
+body {
+  background-image:
+    linear-gradient(rgba(34,241,211,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34,241,211,0.025) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #0f2c2c; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #22f1d320; }
+* { scrollbar-width: thin; scrollbar-color: #0f2c2c transparent; }
+
+/* ── Utility classes ─────────────────────────────────────── */
+.glow   { text-shadow: 0 0 12px rgba(34,241,211,0.65); }
+.panel  {
+  background:    #0a1118;
+  border:        1px solid #0f2027;
+  border-radius: 14px;
+}
+
+/* ── Animations ─────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.2s ease-out; }
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Selection ───────────────────────────────────────────── */
+::selection { background: rgba(34,241,211,0.2); color: #d6f7ee; }

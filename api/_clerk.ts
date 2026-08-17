@@ -1,14 +1,4 @@
 import { createClerkClient, verifyToken, type User } from '@clerk/backend'
-import type { IncomingMessage, ServerResponse } from 'http'
-
-export interface VercelRequest extends IncomingMessage {
-  body: unknown
-  query: Partial<Record<string, string | string[]>>
-}
-export interface VercelResponse extends ServerResponse {
-  status(code: number): VercelResponse
-  json(body: unknown): VercelResponse
-}
 
 // The account that is always granted the top 'god' role, regardless of what
 // role is currently stored in Clerk. Matched case-insensitively against the
@@ -41,9 +31,9 @@ export function roleOf(user: User): UserRole {
   return stored === 'admin' ? 'admin' : 'viewer'
 }
 
-/** Verifies the bearer token on the request and returns the authenticated Clerk user, or null. */
-export async function requireUser(req: VercelRequest): Promise<User | null> {
-  const auth = req.headers.authorization
+/** Verifies the bearer token on a Web-standard Request and returns the authenticated Clerk user, or null. */
+export async function requireUser(req: Request): Promise<User | null> {
+  const auth = req.headers.get('authorization')
   const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null
   if (!token) return null
   try {
@@ -64,4 +54,11 @@ export function serializeUser(user: User) {
     avatar: roleOf(user) === 'god' ? '⚡' : undefined,
     joinedAt: new Date(user.createdAt).toISOString().split('T')[0],
   }
+}
+
+export function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...headers },
+  })
 }

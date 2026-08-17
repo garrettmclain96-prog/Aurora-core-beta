@@ -1,0 +1,30 @@
+{
+  "name": "aurora-core-os",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Aurora Core OS — hybrid cognitive engine for energy, biometrics, and environment",
+  "scripts": {
+    "dev":         "pnpm --parallel -r dev",
+    "dev:api":     "pnpm --filter @aurora/api dev",
+    "dev:web":     "pnpm --filter @aurora/web dev",
+    "build":       "pnpm -r build",
+    "build:sdk":   "pnpm --filter @aurora/sdk build",
+    "build:api":   "pnpm --filter @aurora/api build",
+    "build:web":   "pnpm --filter @aurora/web build",
+    "test":        "pnpm --filter @aurora/api test",
+    "seed":        "pnpm --filter @aurora/api seed",
+    "db:migrate":  "pnpm --filter @aurora/api prisma migrate dev",
+    "db:push":     "pnpm --filter @aurora/api prisma db push",
+    "db:studio":   "pnpm --filter @aurora/api prisma studio",
+    "infra:up":    "docker compose up -d",
+    "infra:down":  "docker compose down",
+    "lint":        "pnpm -r lint"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

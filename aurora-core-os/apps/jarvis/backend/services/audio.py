@@ -1,0 +1,601 @@
+import os
+import logging
+import io
+import time
+import numpy as np
+import soundfile as sf
+import subprocess
+import tempfile
+import requests
+import ormsgpack
+import zipfile
+import shutil
+from faster_whisper import WhisperModel
+from kokoro import KPipeline
+import torch
+import torchaudio
+import importlib
+
+# Try importing Vosk
+try:
+    import vosk
+    HAS_VOSK = True
+except ImportError:
+    HAS_VOSK = False
+
+# Try importing TTS (Coqui)
+try:
+    from TTS.api import TTS
+    HAS_XTTS = True
+except ImportError:
+    HAS_XTTS = False
+
+# Monkeypatch torch.load to handle CUDA models on CPU/MPS
+_original_load = torch.load
+def _safe_load(*args, **kwargs):
+    if 'map_location' not in kwargs and not torch.cuda.is_available():
+        kwargs['map_location'] = 'cpu'
+    # Fix for PyTorch 2.6+ default weights_only=True breaking older pickles
+    if 'weights_only' not in kwargs:
+        kwargs['weights_only'] = False
+    return _original_load(*args, **kwargs)
+torch.load = _safe_load
+
+# Try importing Chatterbox
+try:
+    from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+    from chatterbox.tts import ChatterboxTTS
+    HAS_CHATTERBOX = True
+except ImportError:
+    HAS_CHATTERBOX = False
+
+logger = logging.getLogger("jarvis.audio")
+
+class AudioService:
+    def __init__(self, config):
+        self.config = config
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        if torch.backends.mps.is_available():
+            self.device = "mps" # faster-whisper might not fully support mps yet, usually falls back to cpu or needs specific build. 
+            # For now, faster-whisper on Mac often runs best on CPU with int8 quantization or via CoreML if supported.
+            # We'll stick to "cpu" for faster-whisper on Mac for stability unless configured otherwise.
+            self.asr_device = "cpu" 
+        else:
+            self.asr_device = self.device
+
+        # Initialize ASR
+        self.asr_engine = config['asr'].get('engine', 'whisper')
+        
+        if self.asr_engine == 'vosk':
+            if HAS_VOSK:
+                self._init_vosk()
+            else:
+                logger.error("Vosk requested but not installed. Falling back to Whisper.")
+                self.asr_engine = 'whisper'
+
+        if self.asr_engine == 'whisper':
+            asr_config = config['asr']['whisper']
+            logger.info(f"Loading Faster-Whisper model ({asr_config['model_size']}) on {self.asr_device}...")
+            self.asr_model = WhisperModel(
+                asr_config['model_size'], 
+                device=self.asr_device, 
+                compute_type=asr_config.get('compute_type', 'int8')
+            )
+
+        # Initialize TTS
+        self.tts_engine = config['tts'].get('engine', 'kokoro')
+        
+        if self.tts_engine == 'chatterbox':
+            if not HAS_CHATTERBOX:
+                logger.error("Chatterbox TTS requested but not installed. Falling back to Kokoro.")
+                self.tts_engine = 'kokoro'
+            else:
+                self._init_chatterbox()
+
+        if self.tts_engine == 'xtts':
+            if not HAS_XTTS:
+                logger.error("XTTS requested but 'TTS' package not installed. Falling back to Kokoro.")
+                self.tts_engine = 'kokoro'
+            else:
+                self._init_xtts()
+        
+        if self.tts_engine == 'fish_speech':
+            self._init_fish_speech()
+
+        if self.tts_engine == 'elevenlabs':
+            self._init_elevenlabs()
+
+        if self.tts_engine == 'kokoro':
+            self._init_kokoro()
+
+    def _init_vosk(self):
+        self.vosk_models = {}
+        vosk.SetLogLevel(-1) # Silence Vosk logs
+        
+        # Pre-load default language if specified
+        default_lang = self.config['asr'].get('vosk', {}).get('lang', 'en')
+        self.get_vosk_model(default_lang)
+
+    def get_vosk_model(self, lang):
+        if lang in self.vosk_models:
+            return self.vosk_models[lang]
+            
+        vosk_config = self.config['asr'].get('vosk', {})
+        models_map = vosk_config.get('models', {})
+        
+        # Fallback for backward compatibility or simple config
+        if not models_map:
+            model_path = vosk_config.get('model_path', 'pretrained_models/vosk/model')
+            models_map = {'en': model_path}
+            
+        model_path = models_map.get(lang)
+        if not model_path:
+            logger.warning(f"No Vosk model configured for language '{lang}'. Falling back to 'en'.")
+            lang = 'en'
+            model_path = models_map.get('en', 'pretrained_models/vosk/model_en')
+
+        if not os.path.exists(model_path):
+            logger.info(f"Vosk model for {lang} not found at {model_path}. Downloading...")
+            self._download_vosk_model(model_path, lang)
+            
+        logger.info(f"Loading Vosk model for {lang} from {model_path}...")
+        try:
+            model = vosk.Model(model_path)
+            self.vosk_models[lang] = model
+            return model
+        except Exception as e:
+            logger.error(f"Failed to load Vosk model for {lang}: {e}")
+            return None
+
+    def _download_vosk_model(self, dest_path, lang='en'):
+        # URLs for small models
+        urls = {
+            'en': "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip",
+            'de': "https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip",
+            # Add more languages here as needed
+        }
+        
+        url = urls.get(lang, urls['en'])
+        
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        
+        logger.info(f"Downloading Vosk model for {lang} from {url}...")
+        response = requests.get(url, stream=True)
+        
+        zip_path = dest_path + ".zip"
+        with open(zip_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+                
+        logger.info("Extracting Vosk model...")
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(os.path.dirname(dest_path))
+            
+        # Find the extracted folder name (it might vary)
+        extracted_name = os.path.basename(url).replace('.zip', '')
+        # Sometimes the zip content folder name doesn't match the zip name exactly, 
+        # but for these specific models it usually does.
+        
+        # Check what was extracted
+        parent_dir = os.path.dirname(dest_path)
+        extracted_path = os.path.join(parent_dir, extracted_name)
+        
+        if not os.path.exists(extracted_path):
+            # Fallback: look for any new directory in parent_dir
+            # This is a bit risky but helpful if name doesn't match
+            pass
+
+        if os.path.exists(extracted_path) and extracted_path != os.path.abspath(dest_path):
+            if os.path.exists(dest_path):
+                shutil.rmtree(dest_path)
+            shutil.move(extracted_path, dest_path)
+            
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+        logger.info(f"Vosk model for {lang} ready.")
+
+    def create_vosk_recognizer(self, lang='en'):
+        if not HAS_VOSK:
+            return None
+            
+        if not hasattr(self, 'vosk_models'):
+            self.vosk_models = {}
+            vosk.SetLogLevel(-1)
+
+        model = self.get_vosk_model(lang)
+        if not model:
+            return None
+        return vosk.KaldiRecognizer(model, 16000)
+
+    def _init_elevenlabs(self):
+        tts_config = self.config['tts']['elevenlabs']
+        logger.info("Initializing ElevenLabs TTS...")
+        self.el_voice_id = tts_config.get('voice_id', '21m00Tcm4TlvDq8ikWAM')
+        self.el_model_id = tts_config.get('model_id', 'eleven_monolingual_v1')
+        self.el_stability = tts_config.get('stability', 0.5)
+        self.el_similarity_boost = tts_config.get('similarity_boost', 0.75)
+        self.el_api_key = os.getenv("ELEVENLABS_API_KEY")
+        
+        if not self.el_api_key:
+            logger.warning("ELEVENLABS_API_KEY not found in environment variables.")
+
+    def _init_fish_speech(self):
+        tts_config = self.config['tts']['fish_speech']
+        logger.info("Initializing Fish Speech client...")
+        self.fs_url = tts_config.get('url', 'http://localhost:7861')
+        self.fs_ref_audio = tts_config.get('reference_audio_path')
+        self.fs_ref_text = tts_config.get('reference_text_path')
+        self.sample_rate = 44100 # Fish Speech usually outputs 44.1kHz
+
+        # Pre-load reference audio/text
+        if self.fs_ref_audio and os.path.exists(self.fs_ref_audio):
+            with open(self.fs_ref_audio, "rb") as f:
+                self.fs_ref_audio_bytes = f.read()
+        else:
+            logger.warning(f"Fish Speech reference audio not found: {self.fs_ref_audio}")
+            self.fs_ref_audio_bytes = None
+
+        if self.fs_ref_text and os.path.exists(self.fs_ref_text):
+            with open(self.fs_ref_text, "r") as f:
+                self.fs_ref_text_content = f.read().strip()
+        else:
+            logger.warning(f"Fish Speech reference text not found: {self.fs_ref_text}")
+            self.fs_ref_text_content = ""
+
+    def _init_kokoro(self):
+        # Kokoro uses misaki's English G2P which will attempt to auto-download
+        # spaCy models via `spacy.cli.download(...)` if missing. That can fail on
+        # some systems (e.g. TLS/CA issues) and may raise SystemExit, taking down
+        # the whole backend. We avoid runtime downloads and fail gracefully.
+        tts_config = self.config['tts']['kokoro']
+        lang_code = str(tts_config.get('lang_code', '')).lower()
+
+        # Map Kokoro aliases used upstream.
+        english_aliases = {"en-us", "en-gb"}
+        is_english_kokoro = lang_code in {"a", "b"} or lang_code in english_aliases
+
+        if is_english_kokoro:
+            try:
+                spacy = importlib.import_module("spacy")
+                # misaki expects en_core_web_sm unless trf=True (we don't use trf here)
+                if not spacy.util.is_package("en_core_web_sm"):
+                    logger.error(
+                        "Kokoro English TTS requires spaCy model 'en_core_web_sm', but it is not installed. "
+                        "Auto-download is disabled to keep the backend running. "
+                        "Install it manually once TLS/network is fixed (e.g. `uv pip install en-core-web-sm==3.8.0`)."
+                    )
+                    self.tts_engine = None
+                    logger.warning("TTS has been disabled due to missing spaCy model.")
+                    return
+            except Exception as e:
+                logger.error(
+                    f"Kokoro English TTS requires spaCy + 'en_core_web_sm', but spaCy check failed: {e}"
+                )
+                self.tts_engine = None
+                logger.warning("TTS has been disabled due to initialization failure.")
+                return
+
+        try:
+            logger.info("Loading Kokoro TTS...")
+            self.tts_pipeline = KPipeline(lang_code=tts_config['lang_code'])
+            self.tts_voice = tts_config['voice']
+            self.sample_rate = tts_config.get('sample_rate', 24000)
+        except BaseException as e:
+            # Includes SystemExit from spaCy CLI / pip failures.
+            logger.error(f"Failed to initialize Kokoro TTS: {e}")
+            self.tts_engine = None
+            logger.warning("TTS has been disabled due to initialization failure.")
+
+    def _init_chatterbox(self):
+        tts_config = self.config['tts']['chatterbox']
+        logger.info("Loading Chatterbox TTS...")
+        
+        # Determine device for Chatterbox (it supports mps/cuda/cpu)
+        # If mps is available, use it if configured, otherwise cpu
+        cb_device = tts_config.get('device', 'cpu')
+        if cb_device == 'mps' and not torch.backends.mps.is_available():
+            cb_device = 'cpu'
+            
+        self.cb_model_name = tts_config.get('model_name', 'ChatterboxMultilingualTTS')
+        
+        if self.cb_model_name == 'ChatterboxMultilingualTTS':
+            self.cb_model = ChatterboxMultilingualTTS.from_pretrained(device=cb_device)
+        else:
+            self.cb_model = ChatterboxTTS.from_pretrained(device=cb_device)
+            
+        self.cb_audio_prompt = tts_config.get('audio_prompt_path')
+        self.cb_lang = tts_config.get('language', 'en')
+        self.sample_rate = self.cb_model.sr
+
+    def _init_xtts(self):
+        tts_config = self.config['tts']['xtts']
+        logger.info("Loading XTTS-v2...")
+        
+        # Check for local model path
+        local_model_path = tts_config.get('local_model_path')
+        model_args = {}
+        
+        if local_model_path and os.path.exists(local_model_path):
+            logger.info(f"Loading local XTTS model from {local_model_path}")
+            model_args['model_path'] = local_model_path
+            model_args['config_path'] = os.path.join(local_model_path, "config.json")
+            # XTTS v2 usually needs vocab.json too if loading manually, but TTS class might handle it if in same dir
+            # If not, we might need to pass it. But let's assume standard folder structure.
+        else:
+            model_args['model_name'] = tts_config.get('model_name', "tts_models/multilingual/multi-dataset/xtts_v2")
+            
+        # XTTS on MPS (Mac GPU) has known issues with attention masks in some versions.
+        # If we are on MPS, we might need to force CPU for stability if it crashes.
+        # The error "Can't infer missing attention mask on mps device" suggests we should use CPU for now.
+        if self.device == 'mps':
+            logger.warning("XTTS on MPS detected. Forcing CPU for XTTS to avoid attention mask errors.")
+            self.xtts_model = TTS(**model_args).to('cpu')
+        else:
+            self.xtts_model = TTS(**model_args).to(self.device)
+        
+        self.xtts_speaker_wav = tts_config.get('speaker_wav', 'voice_samples/jarvis_sample.wav')
+        self.xtts_language = tts_config.get('language', 'en')
+        self.sample_rate = 24000
+
+    def transcribe(self, audio_buffer: bytes) -> str:
+        """Transcribes raw audio bytes to text."""
+        start = time.time()
+        try:
+            # Use ffmpeg to convert input bytes to a temporary WAV file
+            # This handles various container formats (webm, ogg, mp4) sent by browsers
+            with tempfile.NamedTemporaryFile(delete=False) as tmp_in:
+                tmp_in.write(audio_buffer)
+                tmp_in_name = tmp_in.name
+            
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_wav:
+                tmp_wav_name = tmp_wav.name
+
+            try:
+                # Convert to 16kHz mono wav
+                subprocess.run([
+                    "ffmpeg", "-y", "-v", "error",
+                    "-i", tmp_in_name,
+                    "-ar", "16000",
+                    "-ac", "1",
+                    "-f", "wav",
+                    tmp_wav_name
+                ], check=True)
+                
+                # Transcribe directly from the WAV file
+                segments, info = self.asr_model.transcribe(tmp_wav_name, beam_size=5)
+                text = " ".join([segment.text for segment in segments]).strip()
+                
+                logger.info(f"Transcribed in {time.time() - start:.2f}s: '{text}'")
+                return text
+                
+            finally:
+                # Cleanup temp files
+                if os.path.exists(tmp_in_name):
+                    os.unlink(tmp_in_name)
+                if os.path.exists(tmp_wav_name):
+                    os.unlink(tmp_wav_name)
+                    
+        except subprocess.CalledProcessError as e:
+            logger.error(f"FFmpeg conversion failed: {e}")
+            return ""
+        except Exception as e:
+            logger.error(f"Transcription failed: {e}")
+            return ""
+
+    def synthesize(self, text: str) -> bytes:
+        """Synthesizes text to audio bytes (WAV)."""
+        start = time.time()
+        try:
+            if self.tts_engine == 'chatterbox':
+                return self._synthesize_chatterbox(text)
+            elif self.tts_engine == 'xtts':
+                return self._synthesize_xtts(text)
+            elif self.tts_engine == 'fish_speech':
+                return self._synthesize_fish_speech(text)
+            elif self.tts_engine == 'elevenlabs':
+                return self._synthesize_elevenlabs(text)
+            else:
+                return self._synthesize_kokoro(text)
+            
+        except Exception as e:
+            logger.error(f"Synthesis failed: {e}")
+            return b""
+
+    def _synthesize_elevenlabs(self, text: str) -> bytes:
+        if not self.el_api_key:
+            logger.error("ElevenLabs API key is missing.")
+            return b""
+
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{self.el_voice_id}"
+        
+        headers = {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": self.el_api_key
+        }
+        
+        data = {
+            "text": text,
+            "model_id": self.el_model_id,
+            "voice_settings": {
+                "stability": self.el_stability,
+                "similarity_boost": self.el_similarity_boost
+            }
+        }
+
+        try:
+            response = requests.post(url, json=data, headers=headers, timeout=30)
+            if response.status_code == 200:
+                return self._convert_mp3_to_wav(response.content)
+            else:
+                logger.error(f"ElevenLabs API error: {response.status_code} - {response.text}")
+                return b""
+        except Exception as e:
+            logger.error(f"ElevenLabs request failed: {e}")
+            return b""
+
+    def _convert_mp3_to_wav(self, mp3_data: bytes) -> bytes:
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_mp3:
+                tmp_mp3.write(mp3_data)
+                tmp_mp3_name = tmp_mp3.name
+            
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_wav:
+                tmp_wav_name = tmp_wav.name
+
+            subprocess.run([
+                "ffmpeg", "-y", "-v", "error",
+                "-i", tmp_mp3_name,
+                "-f", "wav",
+                tmp_wav_name
+            ], check=True)
+            
+            with open(tmp_wav_name, "rb") as f:
+                wav_bytes = f.read()
+                
+            if os.path.exists(tmp_mp3_name):
+                os.unlink(tmp_mp3_name)
+            if os.path.exists(tmp_wav_name):
+                os.unlink(tmp_wav_name)
+                
+            return wav_bytes
+        except Exception as e:
+            logger.error(f"MP3 to WAV conversion failed: {e}")
+            return b""
+
+    def _synthesize_fish_speech(self, text: str) -> bytes:
+        if not self.fs_ref_audio_bytes or not self.fs_ref_text_content:
+            logger.error("Fish Speech reference audio/text not loaded.")
+            return b""
+
+        # Construct request payload manually to avoid dataclass dependency here
+        # Structure:
+        # {
+        #   "text": "...",
+        #   "references": [{"audio": bytes, "text": "..."}],
+        #   "format": "wav",
+        #   ...
+        # }
+        
+        req_dict = {
+            "text": text,
+            "references": [{
+                "audio": self.fs_ref_audio_bytes,
+                "text": self.fs_ref_text_content
+            }],
+            "reference_id": None,
+            "max_new_tokens": 1024,
+            "chunk_length": 200,
+            "top_p": 0.7,
+            "repetition_penalty": 1.2,
+            "temperature": 0.7,
+            "format": "wav",
+            "streaming": False,
+            "normalize": True,
+        }
+
+        try:
+            payload = ormsgpack.packb(req_dict)
+            response = requests.post(
+                f"{self.fs_url}/v1/tts",
+                data=payload,
+                headers={"Content-Type": "application/msgpack"},
+                timeout=60.0
+            )
+            
+            if response.status_code == 200:
+                return response.content
+            else:
+                logger.error(f"Fish Speech API error: {response.status_code} - {response.text}")
+                return b""
+        except Exception as e:
+            logger.error(f"Fish Speech request failed: {e}")
+            return b""
+
+    def _synthesize_kokoro(self, text: str) -> bytes:
+        # Kokoro returns a generator or list of audio chunks
+        generator = self.tts_pipeline(
+            text, 
+            voice=self.tts_voice,
+            speed=1, 
+            split_pattern=r'\n+'
+        )
+        
+        # Concatenate all audio segments
+        all_audio = []
+        for _, _, audio in generator:
+            all_audio.append(audio)
+        
+        if not all_audio:
+            return b""
+
+        full_audio = np.concatenate(all_audio)
+        
+        # Convert to WAV bytes
+        out_buf = io.BytesIO()
+        sf.write(out_buf, full_audio, self.sample_rate, format='WAV')
+        return out_buf.getvalue()
+
+    def _synthesize_xtts(self, text: str) -> bytes:
+        # Check for speaker wav
+        speaker_wav = self.xtts_speaker_wav
+        if not os.path.exists(speaker_wav):
+             logger.warning(f"Speaker sample not found: {speaker_wav}. Using default if available or failing.")
+        
+        # Generate
+        # TTS.tts returns a list of floats
+        wav = self.xtts_model.tts(text=text, speaker_wav=speaker_wav, language=self.xtts_language)
+        
+        # Convert to numpy
+        wav_np = np.array(wav, dtype=np.float32)
+        
+        # Convert to bytes
+        out_buf = io.BytesIO()
+        sf.write(out_buf, wav_np, self.sample_rate, format='WAV')
+        return out_buf.getvalue()
+
+    def _synthesize_chatterbox(self, text: str) -> bytes:
+        # Check for audio prompt
+        prompt_path = None
+        if self.cb_audio_prompt and os.path.exists(self.cb_audio_prompt):
+            prompt_path = self.cb_audio_prompt
+        elif self.cb_audio_prompt:
+            logger.warning(f"Audio prompt file not found: {self.cb_audio_prompt}")
+
+        # Generate
+        # Note: Chatterbox generate returns a torch tensor usually? 
+        # The example says: wav = model.generate(text); ta.save(..., wav, model.sr)
+        # So wav is likely a tensor.
+        
+        if self.cb_model_name == 'ChatterboxMultilingualTTS':
+            # Multilingual
+            # It seems it might not support audio_prompt_path in the same way as the base model?
+            # The user example showed: multilingual_model.generate(text, language_id="fr")
+            # But the user also said "I would also like to provide a audio prompt".
+            # Let's try passing it if it exists. If it fails, we catch exception.
+            kwargs = {"language_id": self.cb_lang}
+            if prompt_path:
+                # Assuming it might accept it or we can try. 
+                # If the library doesn't support it for multilingual, this might crash.
+                # But let's assume the user knows what they are asking for or the library supports it.
+                # Actually, looking at common TTS libs, usually multilingual + zero-shot cloning is a thing.
+                kwargs["audio_prompt_path"] = prompt_path
+            
+            wav = self.cb_model.generate(text, **kwargs)
+        else:
+            # Standard
+            kwargs = {}
+            if prompt_path:
+                kwargs["audio_prompt_path"] = prompt_path
+            wav = self.cb_model.generate(text, **kwargs)
+
+        # Convert tensor to bytes
+        # wav is likely shape (1, samples) or (samples,)
+        if hasattr(wav, 'cpu'):
+            wav = wav.cpu()
+        
+        # Use torchaudio to save to buffer
+        out_buf = io.BytesIO()
+        torchaudio.save(out_buf, wav, self.sample_rate, format="wav")
+        return out_buf.getvalue()
+

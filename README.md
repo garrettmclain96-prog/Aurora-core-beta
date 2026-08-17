@@ -1,84 +1,236 @@
-# Aurora Core v2.0
+<div align="center">
 
-Seven-layer cognitive-energy ecosystem. AI-powered biometric + energy management platform.
+# AURORA CORE OS
+### v2.0 · McLain Systems
 
-## Stack
-- React 19 + TypeScript + Vite 7
-- Tailwind CSS 4
-- Recharts for data visualization
-- Wouter for routing
-- Clerk for authentication
-- Vercel serverless functions (Claude/Groq chat proxy + role management)
+**Hybrid cognitive engine for energy, biometrics, and environment.**  
+REST API · WebSocket · Webhooks · AI Chat · TypeScript + Python SDKs
 
-## Auth
+[![Deploy](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/T3a165/Aurora-Core)
 
-Sign-in/sign-up is handled by [Clerk](https://clerk.com) (email + password,
-with an email verification code step). Roles (`god` / `admin` / `viewer`)
-are stored in Clerk's `publicMetadata` and resolved server-side:
+[Live Demo](https://aurora-core-3j6h.vercel.app) · [API Docs](aurora-core-os/docs/api-reference.md) · [Dev Portal](https://aurora-core-3j6h.vercel.app/#/dev)
 
-- The account whose **verified email** matches `GOD_EMAIL` in `api/_clerk.ts`
-  is always granted `god`, automatically, the first time it signs in —
-  no manual dashboard step needed.
-- Every other account defaults to `viewer` on first sign-in.
-- Only `god` can promote/demote accounts between `viewer` and `admin`
-  (Settings → Users tab), enforced server-side in `api/update-role.ts`.
+</div>
 
-See `.env.example` for the required `VITE_CLERK_PUBLISHABLE_KEY` /
-`CLERK_SECRET_KEY` — get both from your Clerk Dashboard → API Keys.
+---
 
-## Local dev
+## Running this repo
 
+This repo root is the **deployed Vite app** (`src/`) plus its **Vercel serverless
+functions** (`api/`) — the thing that actually runs at your Vercel URL.
+`aurora-core-os/` alongside it is a separate, standalone Express/Prisma/Redis
+backend project with its own setup (see its own README); the two aren't wired
+together.
+
+**Setup:**
 ```bash
 npm install
-cp .env.example .env.local   # fill in your real Clerk + AI keys
+cp .env.example .env.local   # fill in real values — see below
 ```
 
-Plain `vite` doesn't serve the `/api/*` serverless functions that auth and
-chat depend on. Use the Vercel CLI for local dev instead so both the
-frontend and the API routes run together:
-
+Plain `vite` doesn't serve the `/api/*` functions that auth, chat, JARVIS
+voice, and relay control all depend on. Use the Vercel CLI so the frontend
+and API routes run together locally:
 ```bash
 npm i -g vercel   # once
 vercel dev
 ```
+(`npm run dev` still works for pure frontend iteration, but sign-in, chat,
+and relay control won't function without `vercel dev` or a real deployment.)
 
-(`npm run dev` still works for pure frontend iteration, but sign-in/sign-up
-and the AI chat won't function without `vercel dev` or a real deployment.)
+**Required env vars** (`.env.example` has the full list with comments):
+- `VITE_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` — auth. Get both from
+  your [Clerk Dashboard](https://clerk.com) → API Keys. The account whose
+  verified email matches `GOD_EMAIL` in `api/_clerk.ts` is automatically
+  granted the top `god` role on first sign-in; everyone else starts as
+  `viewer`. Only `god` can promote/demote accounts to `admin`
+  (Settings → Users tab).
+- `ANTHROPIC_API_KEY` / `GROQ_API_KEY` — AI chat (Anthropic first, Groq as
+  a free fallback).
+- `OPENAI_API_KEY` — JARVIS voice mode (Whisper + GPT-4o-mini + TTS).
+- `INGEST_SECRET` — shared secret for `POST /api/ingest` (ESP32 telemetry).
+  Without it, ingest POST fails closed (503) rather than accepting
+  unauthenticated writes.
 
-## Deploy to Vercel
+**Relay control is a physical safety boundary, not a demo toggle.**
+`/api/relay` switches real hardware — including the generator and propane
+relays on the RV build this targets. `POST /api/relay` requires a signed-in
+`god` or `admin` Clerk session; `GET` (read-only state) is open. The
+Dashboard's relay widget and the TurnBot panel both lock their controls in
+the UI for any other role.
 
-1. Push to GitHub
-2. Import project at vercel.com — framework: **Vite**
-3. Add environment variables from `.env.example`: `VITE_CLERK_PUBLISHABLE_KEY`,
-   `CLERK_SECRET_KEY`, and `ANTHROPIC_API_KEY` (or `GROQ_API_KEY` as a free
-   fallback)
-4. Deploy
+---
 
-Auth requires Clerk to be configured. The AI Chat and Simulation "Analyze
-with AI" features require an AI key — everything else runs on demo data
-with no external dependencies.
+## What is Aurora?
+
+Aurora Core OS is a real-time cognitive engine that manages three domains of a connected environment:
+
+| Domain | Sensors | Score contribution |
+|---|---|---|
+| **Energy** | Solar, load, battery SoC, grid tariff | Demand/supply balance, self-consumption, cost |
+| **Biometrics** | HR, HRV, stress (0–100) | Strain detection — non-medical, conservative |
+| **Environment** | Temp, humidity, CO₂ ppm, PM2.5 | Comfort and air-quality safety |
+
+It computes a **System Score (0–100)**, generates human-readable **signals**, and issues **device actions** — automatically, in real time, with every incoming sensor reading.
+
+---
 
 ## Architecture
 
 ```
-L1 Bio Ingestion
-L2 Signal Normalization
-L3 Cognitive Core (Health · Energy · Behavior · Environment agents)
-L4 Predictive Simulation (Monte Carlo + TFT)
-L5 Decision Orchestration
-L6 Physical Execution (TurnBot Matter/Thread/BLE)
-L7 Optimization Loop
+┌─────────────────────────────────────────────────────────────┐
+│  External devices / sensors / wearables                     │
+│  (Enphase, Tesla, Ecobee, Home Assistant, MQTT, Shelly...)  │
+└────────────────────┬────────────────────────────────────────┘
+                     │ POST /v1/events
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Aurora Core Engine (Node/TypeScript)                       │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Ingest → State (Redis) → Score + Signals → Actions  │   │
+│  │  + Trend detection  + Predictive score               │   │
+│  └──────────────────────────────────────────────────────┘   │
+│  REST API  ·  WebSocket stream  ·  Webhooks                 │
+└──────────┬──────────────────────────────────────────────────┘
+           │
+    ┌──────┴──────────────────────────────┐
+    │                                     │
+    ▼                                     ▼
+PostgreSQL (events, insights,         Redis (live state,
+ actions, audit, webhooks)            pub/sub, rate limit)
+    │
+    ▼
+┌──────────────────────────────────────────────────────────┐
+│  Frontends                                               │
+│  Aurora Console (Next.js) · Aurora Vite App (deployed)  │
+└──────────────────────────────────────────────────────────┘
 ```
 
-## Pages
-| Route | Page |
+---
+
+## Quick Start (15 minutes)
+
+```bash
+git clone https://github.com/T3a165/Aurora-Core.git
+cd Aurora-Core/aurora-core-os
+docker compose up -d          # Postgres + Redis
+cd apps/api
+pnpm install
+pnpm prisma migrate dev
+pnpm seed                     # prints installation ID + API key
+pnpm dev                      # → http://localhost:4000
+```
+
+Send your first event:
+```bash
+curl -X POST http://localhost:4000/v1/events \
+  -H "Authorization: Bearer ak_..." \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"ENERGY","kind":"solar_w","value":1240}'
+# → {"accepted":1,"results":[{"score":87,"trend":"stable"}]}
+```
+
+No sensors? Inject demo data instantly:
+```bash
+curl -X POST http://localhost:4000/v1/simulate \
+  -H "Authorization: Bearer ak_..." \
+  -d '{"scenario":"stress"}'
+```
+
+---
+
+## SDKs
+
+**Node/TypeScript**
+```ts
+import { AuroraClient } from "@aurora/sdk";
+const aurora = new AuroraClient({ baseUrl: "http://localhost:4000", apiKey: "ak_..." });
+
+await aurora.sendEvent({ domain: "ENERGY", kind: "solar_w", value: 1240 });
+const { current } = await aurora.getInsights();
+console.log(`Score: ${current.score}/100 (${current.trend})`);
+
+const off = aurora.subscribe(msg => {
+  if (msg.type === "action") console.log("Aurora says:", msg.action.command);
+});
+```
+
+**Python**
+```python
+from aurora import AuroraClient
+aurora = AuroraClient(api_key="ak_...", base_url="http://localhost:4000")
+
+aurora.send_event({"domain": "ENERGY", "kind": "solar_w", "value": 1240})
+data = aurora.get_insights()
+print(f"Score: {data['current']['score']}/100")
+```
+
+---
+
+## API Highlights
+
+| Endpoint | Description |
 |---|---|
-| `/` | Dashboard |
-| `/layers` | Cognitive Layers |
-| `/agents` | Agent Panel |
-| `/circuits` | Circuit Monitor |
-| `/battery` | Battery Management |
-| `/simulation` | Predictive Simulation |
-| `/turnbot` | TurnBot Network |
-| `/chat` | AI Chat |
-| `/alerts` | Alert Center |
+| `POST /v1/events` | Send sensor readings (single or batch) |
+| `GET /v1/state` | Current live state |
+| `GET /v1/insights` | Score + signals + trend + prediction |
+| `GET /v1/history` | Event time-series query |
+| `POST /v1/devices/:id/command` | Issue device command |
+| `POST /v1/config/mode` | Switch energy/health/habitat mode |
+| `POST /v1/chat` | AI natural language query (Claude-powered) |
+| `POST /v1/webhooks` | Register webhook endpoint |
+| `POST /v1/simulate` | Inject demo scenario |
+| `GET /v1/export` | Full installation snapshot |
+| `GET /health` | Health check (DB + Redis) |
+| `GET /metrics` | Prometheus metrics |
+
+Full docs: [aurora-core-os/docs/api-reference.md](aurora-core-os/docs/api-reference.md)
+
+---
+
+## Modes
+
+| Mode | Energy weight | Bio weight | Env weight |
+|---|---|---|---|
+| **Energy Guardian** | 60% | 15% | 25% |
+| **Health Sentinel** | 15% | 60% | 25% |
+| **Habitat Optimizer** | 33% | 33% | 34% |
+
+---
+
+## Repo Structure
+
+```
+Aurora-Core/
+├── aurora-core-os/           # Full production platform
+│   ├── apps/
+│   │   ├── api/              # Express + Prisma + Redis backend
+│   │   ├── web/              # Next.js console frontend
+│   │   └── jarvis/           # Voice AI companion (experimental)
+│   ├── packages/
+│   │   ├── sdk-node/         # TypeScript SDK
+│   │   └── sdk-python/       # Python SDK
+│   └── docs/                 # API reference, concepts, security
+├── src/                      # Deployed Vite app (aurora-core-3j6h.vercel.app)
+│   ├── pages/
+│   │   ├── Dashboard.tsx
+│   │   ├── DevPortal.tsx     # ← Developer Portal (new)
+│   │   └── ...
+│   └── components/
+└── api/                      # Vercel serverless functions
+    └── chat.ts               # Claude AI proxy
+```
+
+---
+
+## Contributing
+
+Attribution: Original C++ (TriforceSystem) and Verilog (ARCHANGEL_CORE) by Alexander Colclough (@Lex-Col), used with permission.
+
+Safety note: Bio scoring is intentionally non-medical and conservative. Aurora produces action *records* — your device adapter decides whether to execute them. Never use Aurora as a clinical device.
+
+---
+
+<div align="center">
+Built with purpose. · McLain Systems · 2025
+</div>

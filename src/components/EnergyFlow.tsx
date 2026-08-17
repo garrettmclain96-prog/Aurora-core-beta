@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { LiveMetrics } from '../lib/useRealtime'
+import type { LiveMetrics } from '../types'
 
 type FlowNodeProps = {
   cx: number; cy: number; label: string; value: string
