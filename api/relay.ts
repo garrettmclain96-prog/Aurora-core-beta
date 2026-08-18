@@ -14,7 +14,7 @@
  * requires a signed-in Clerk session with role 'god' or 'admin'. GET
  * (read current state) is open, since it exposes no control surface.
  */
-import { requireUser, roleOf, json } from './_clerk'
+import { requireUser, roleOf, json } from './_clerk.js'
 
 export const config = { runtime: 'nodejs' }
 
@@ -43,7 +43,7 @@ function isValidRelay(r: unknown): r is RelayId {
   return typeof r === 'string' && ['k1','k2','k3','k4'].includes(r)
 }
 
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
 
   // GET — return current relay state (from KV if available, else defaults)
@@ -140,3 +140,7 @@ async function setRelayCommand(cmd: RelayCommand): Promise<void> {
   await mod.kv.lpush('relay_queue', JSON.stringify({ ...cmd, ts: Date.now() }))
   await mod.kv.ltrim('relay_queue', 0, 49) // keep last 50
 }
+
+export const GET = handler
+export const POST = handler
+export const OPTIONS = handler

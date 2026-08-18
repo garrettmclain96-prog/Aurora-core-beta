@@ -1,13 +1,13 @@
 export const config = { runtime: 'nodejs' }
 
-import { clerkClient, requireUser, roleOf, serializeUser, json } from './_clerk'
+import { clerkClient, requireUser, roleOf, serializeUser, json } from './_clerk.js'
 
 const ASSIGNABLE_ROLES = ['viewer', 'admin'] as const
 
 // Changes another account's role. God only — admins can view the user list
 // but not grant/revoke admin themselves. The god account's own role can
 // never be changed here (it's always derived server-side — see roleOf).
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   const caller = await requireUser(req)
@@ -35,3 +35,5 @@ export default async function handler(req: Request): Promise<Response> {
   const updated = await clerkClient().users.getUser(target.id)
   return json(serializeUser(updated))
 }
+
+export const POST = handler

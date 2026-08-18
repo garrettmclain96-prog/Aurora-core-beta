@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Aurora Core — JARVIS backend  (streaming SSE, Web API only)
 
-import { isRateLimited, clientIp } from './_ratelimit'
+import { isRateLimited, clientIp } from './_ratelimit.js'
 
 export const config = { runtime: 'nodejs' }
 
@@ -45,7 +45,7 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
@@ -189,3 +189,6 @@ export default async function handler(req: Request): Promise<Response> {
 }
 
 function enc(s: string) { return new TextEncoder().encode(s) }
+
+export const POST = handler
+export const OPTIONS = handler

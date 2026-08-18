@@ -53,7 +53,7 @@ function deriveActions(p: TelemetryPayload): string[] {
   return out
 }
 
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
 
   // GET — return latest snapshot for frontend polling
@@ -102,3 +102,7 @@ export default async function handler(req: Request): Promise<Response> {
     relay: { k1: p.relay_k1 ?? false, k2: p.relay_k2 ?? true, k3: p.relay_k3 ?? true, k4: p.relay_k4 ?? false },
   }), { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } })
 }
+
+export const GET = handler
+export const POST = handler
+export const OPTIONS = handler
