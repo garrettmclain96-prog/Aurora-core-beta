@@ -162,8 +162,8 @@ export function Settings() {
                 <div className="space-y-3">
                   {[
                     { name: 'Groq / Llama 3.1', status: 'active',  color: 'var(--color-green)',  desc: 'Free AI inference — AURORA Intelligence' },
-                    { name: 'GitHub',            status: 'active',  color: 'var(--color-green)',  desc: 'T3a165/Aurora-Core · Auto-deploy on push' },
-                    { name: 'Vercel',            status: 'active',  color: 'var(--color-green)',  desc: 'aurora-core-3j6h.vercel.app · Production' },
+                    { name: 'GitHub',            status: 'active',  color: 'var(--color-green)',  desc: 'garrettmclain96-prog/Aurora-core-beta · Auto-deploy on push' },
+                    { name: 'Vercel',            status: 'active',  color: 'var(--color-green)',  desc: 'aurora-core-beta.vercel.app · Production' },
                     { name: 'Anthropic Claude',  status: 'billing', color: 'var(--color-amber)',  desc: 'No credits — add $5 to upgrade from Llama' },
                   ].map(s => (
                     <div key={s.name} className="flex items-center gap-3">

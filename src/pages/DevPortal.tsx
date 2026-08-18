@@ -190,7 +190,7 @@ function QuickStart() {
         <div className="flex-1 space-y-3 pt-0.5">
           <h3 className="display font-bold text-sm text-[var(--color-text)]">Boot the stack</h3>
           <CodeBlock lang="bash" code={`# Aurora Core deploys entirely on Vercel — no local setup needed
-# 1. Fork: github.com/T3a165/Aurora-Core  (tap Fork in the GitHub mobile app)
+# 1. Fork: github.com/garrettmclain96-prog/Aurora-core-beta  (tap Fork in the GitHub mobile app)
 # 2. Import to Vercel: vercel.com/new  → Import Git Repository
 # 3. Set environment variables in Vercel dashboard:
 #      ANTHROPIC_API_KEY   = sk-ant-...
@@ -775,7 +775,7 @@ export function DevPortal() {
               <p className="text-[11px] text-[var(--color-muted)]">Integrate Aurora Core into anything. REST + WebSocket + Webhooks.</p>
             </div>
             <a
-              href="https://github.com/T3a165/Aurora-Core"
+              href="https://github.com/garrettmclain96-prog/Aurora-core-beta"
               target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[10px] text-[var(--color-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-teal)]/30 transition-all mono flex-shrink-0"
             >

@@ -6,9 +6,9 @@
 **Hybrid cognitive engine for energy, biometrics, and environment.**  
 REST API · WebSocket · Webhooks · AI Chat · TypeScript + Python SDKs
 
-[![Deploy](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/T3a165/Aurora-Core)
+[![Deploy](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/garrettmclain96-prog/Aurora-core-beta)
 
-[Live Demo](https://aurora-core-3j6h.vercel.app) · [API Docs](aurora-core-os/docs/api-reference.md) · [Dev Portal](https://aurora-core-3j6h.vercel.app/#/dev)
+[Live Demo](https://aurora-core-beta.vercel.app) · [API Docs](aurora-core-os/docs/api-reference.md) · [Dev Portal](https://aurora-core-beta.vercel.app/dev)
 
 </div>
 
@@ -119,8 +119,8 @@ PostgreSQL (events, insights,         Redis (live state,
 ## Quick Start (15 minutes)
 
 ```bash
-git clone https://github.com/T3a165/Aurora-Core.git
-cd Aurora-Core/aurora-core-os
+git clone https://github.com/garrettmclain96-prog/Aurora-core-beta.git
+cd Aurora-core-beta/aurora-core-os
 docker compose up -d          # Postgres + Redis
 cd apps/api
 pnpm install
@@ -219,7 +219,7 @@ Aurora-Core/
 │   │   ├── sdk-node/         # TypeScript SDK
 │   │   └── sdk-python/       # Python SDK
 │   └── docs/                 # API reference, concepts, security
-├── src/                      # Deployed Vite app (aurora-core-3j6h.vercel.app)
+├── src/                      # Deployed Vite app (aurora-core-beta.vercel.app)
 │   ├── pages/
 │   │   ├── Dashboard.tsx
 │   │   ├── DevPortal.tsx     # ← Developer Portal (new)
