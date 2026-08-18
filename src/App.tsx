@@ -1,5 +1,6 @@
 import { useState, useCallback, Suspense, lazy } from 'react'
-import { Route, Switch } from 'wouter'
+import { Route, Switch, useLocation } from 'wouter'
+import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react'
 import { AnimatePresence } from 'framer-motion'
 import { Analytics } from '@vercel/analytics/react'
 import { AuthProvider, useAuth } from './lib/auth'
@@ -40,8 +41,24 @@ function RouteFallback() {
 
 function AppInner() {
   const { user, isLoaded, isAuthenticated } = useAuth()
+  const [location] = useLocation()
   const [booted, setBooted] = useState(false)
   const handleBootDone = useCallback(() => setBooted(true), [])
+
+  // Where social sign-in returns to. Must be handled before the boot splash
+  // and the auth gate: at this point the session isn't established yet, so
+  // any gate above would bounce the user back to sign-in mid-handshake.
+  if (location === '/sso-callback') {
+    return (
+      <div className="flex items-center justify-center h-screen" style={{ background: 'var(--color-void)' }}>
+        <RouteFallback />
+        <AuthenticateWithRedirectCallback
+          signInFallbackRedirectUrl="/"
+          signUpFallbackRedirectUrl="/"
+        />
+      </div>
+    )
+  }
 
   if (!booted || !isLoaded) return <BootSplash onDone={handleBootDone} />
   if (!isAuthenticated)     return <AuthScreen />

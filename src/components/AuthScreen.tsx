@@ -1,10 +1,29 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
-import { useAuth } from '../lib/auth'
+import { useAuth, type OAuthProvider } from '../lib/auth'
+
+// Providers shown as social sign-in buttons. Each must also be enabled in the
+// Clerk Dashboard (User & Authentication → SSO Connections); a provider left
+// off there surfaces a message saying so rather than failing silently.
+const SOCIAL_BUTTONS: { provider: OAuthProvider; label: string; icon: React.ReactNode }[] = [
+  {
+    provider: 'google',
+    label: 'Continue with Google',
+    icon: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden>
+        <path fill="#4285F4" d="M23.5 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.45a5.5 5.5 0 0 1-2.39 3.62v3h3.86c2.26-2.08 3.58-5.15 3.58-8.65z" />
+        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09A12 12 0 0 0 12 24z" />
+        <path fill="#FBBC05" d="M5.27 14.29a7.2 7.2 0 0 1 0-4.58V6.62H1.29a12 12 0 0 0 0 10.76l3.98-3.09z" />
+        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z" />
+      </svg>
+    ),
+  },
+]
 
 export function AuthScreen() {
-  const { login, signup, verifyEmail, resendVerification, pendingVerification, loginAsGuest } = useAuth()
+  const { login, signup, verifyEmail, resendVerification, oauthSignIn, pendingVerification, loginAsGuest } = useAuth()
+  const [oauthPending, setOauthPending] = useState<OAuthProvider | null>(null)
   const [mode, setMode]     = useState<'login' | 'signup'>('login')
   const [email, setEmail]   = useState('')
   const [pw, setPw]         = useState('')
@@ -35,6 +54,18 @@ export function AuthScreen() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong')
     } finally { setLoading(false) }
+  }
+
+  const social = async (provider: OAuthProvider) => {
+    setError('')
+    setOauthPending(provider)
+    try {
+      await oauthSignIn(provider) // navigates away on success
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    } finally {
+      setOauthPending(null)
+    }
   }
 
   const resend = async () => {
@@ -187,6 +218,17 @@ export function AuthScreen() {
                   <span className="text-[9px] font-display tracking-widest" style={{ color: 'var(--color-dim)' }}>OR</span>
                   <div className="flex-1 h-px" style={{ background: 'var(--color-border)' }} />
                 </div>
+
+                {SOCIAL_BUTTONS.map(({ provider, label, icon }) => (
+                  <motion.button key={provider} onClick={() => social(provider)}
+                    disabled={oauthPending !== null} whileTap={{ scale: 0.98 }}
+                    className="w-full flex items-center justify-center gap-2.5 py-3 rounded-xl text-sm font-display tracking-wide transition-all disabled:opacity-50"
+                    style={{ border: '1px solid var(--color-borderhi)', color: 'var(--color-text)', background: 'var(--color-elevated)' }}>
+                    {oauthPending === provider
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <>{icon}{label}</>}
+                  </motion.button>
+                ))}
 
                 <motion.button onClick={loginAsGuest} whileTap={{ scale: 0.98 }}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-display tracking-wider transition-all"

@@ -45,6 +45,13 @@ and relay control won't function without `vercel dev` or a real deployment.)
   `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, so it works whichever form you
   copied. It's resolved at build time (see `vite.config.ts`), so changing
   it requires a redeploy. The secret key is never exposed to the browser.
+Social sign-in ("Continue with Google") is rendered from `SOCIAL_BUTTONS` in
+`src/components/AuthScreen.tsx`. Clerk exposes no API for a custom sign-in UI
+to discover which SSO connections an instance has enabled, so that list is the
+source of truth — each provider in it **must also be enabled** under
+User & Authentication → SSO Connections in the Clerk Dashboard, or the button
+reports that it isn't. OAuth returns to `/sso-callback`, handled in `App.tsx`.
+
 - `GOD_USER_ID` (recommended) or `GOD_EMAIL` — which account is granted the
   top `god` role automatically on first sign-in; everyone else starts as
   `viewer`, and only a `god` can promote/demote accounts to `admin`

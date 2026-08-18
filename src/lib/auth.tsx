@@ -8,6 +8,16 @@ import {
 
 export type UserRole = 'god' | 'admin' | 'viewer' | 'guest'
 
+/**
+ * Social providers offered on the sign-in screen.
+ *
+ * Each must also be turned on in the Clerk Dashboard (User & Authentication →
+ * SSO Connections) — Clerk gives custom sign-in UIs no API to enumerate which
+ * connections an instance has enabled, so this list is the source of truth.
+ * Add a provider here and to SOCIAL_BUTTONS in AuthScreen.tsx to offer it.
+ */
+export type OAuthProvider = 'google' | 'github' | 'apple'
+
 export type User = {
   id: string
   email: string
@@ -26,6 +36,7 @@ type AuthCtx = {
   signup: (email: string, password: string, name: string) => Promise<void>
   verifyEmail: (code: string) => Promise<void>
   resendVerification: () => Promise<void>
+  oauthSignIn: (provider: OAuthProvider) => Promise<void>
   pendingVerification: boolean
   loginAsGuest: () => void
   logout: () => void
@@ -164,6 +175,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const oauthSignIn = async (provider: OAuthProvider) => {
+    setError(null)
+    if (!signIn) throw new Error('Auth not ready — try again in a moment')
+    try {
+      // Hands off to the provider, then back to /sso-callback, which finishes
+      // the handshake and lands on "/". Navigates away, so nothing after this
+      // runs on success.
+      await signIn.authenticateWithRedirect({
+        strategy: `oauth_${provider}`,
+        redirectUrl: '/sso-callback',
+        redirectUrlComplete: '/',
+      })
+    } catch (e) {
+      const raw = extractError(e)
+      // Clerk rejects a strategy the instance hasn't enabled. That reads as a
+      // dead button, so name the actual fix instead of surfacing Clerk's text.
+      const msg = /strategy|not enabled|invalid/i.test(raw)
+        ? `${provider} sign-in isn't enabled on this Clerk instance yet — turn it on under User & Authentication → SSO Connections in the Clerk Dashboard.`
+        : raw
+      setError(msg)
+      throw new Error(msg)
+    }
+  }
+
   const loginAsGuest = () => {
     setError(null)
     setGuestUser({
@@ -199,7 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider value={{
       user, users, isLoaded: clerkLoaded, isAuthenticated,
-      login, signup, verifyEmail, resendVerification, pendingVerification,
+      login, signup, verifyEmail, resendVerification, oauthSignIn, pendingVerification,
       loginAsGuest, logout,
       isGod: user?.role === 'god',
       isAdmin: user?.role === 'god' || user?.role === 'admin',
