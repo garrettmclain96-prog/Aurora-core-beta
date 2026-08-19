@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const BOOT = [
-  { ms: 300,  text: 'Initializing Aurora Core v2.0',         ok: false },
-  { ms: 650,  text: 'L1–L2  Bio + Signal pipeline',          ok: true  },
-  { ms: 950,  text: 'L3      Cognitive Core · 4 agents',     ok: true  },
-  { ms: 1200, text: 'L4      Monte Carlo simulation engine',  ok: true  },
-  { ms: 1420, text: 'L5–L6  Decision + TurnBot execution',   ok: true  },
-  { ms: 1610, text: 'L7      Optimization loop',             ok: true  },
-  { ms: 1780, text: 'AURORA intelligence core',              ok: true  },
-  { ms: 1950, text: '▸  All systems nominal',               ok: false, done: true },
+  { ms: 300,  text: 'Initializing Aurora',                  ok: false },
+  { ms: 650,  text: 'Case engine online',                   ok: true  },
+  { ms: 950,  text: 'Diagnostic reasoning · Claude',        ok: true  },
+  { ms: 1200, text: 'Equipment memory',                     ok: true  },
+  { ms: 1420, text: 'Vision · read the plate',              ok: true  },
+  { ms: 1610, text: 'Safety guardrails',                    ok: true  },
+  { ms: 1780, text: 'Problem → outcome loop',               ok: true  },
+  { ms: 1950, text: '▸  Ready to diagnose',                ok: false, done: true },
 ]
 
 export function BootSplash({ onDone }: { onDone: () => void }) {
@@ -77,7 +77,7 @@ export function BootSplash({ onDone }: { onDone: () => void }) {
             </div>
             <div className="text-center">
               <div className="display font-black text-4xl gradient-text-aurora tracking-tight">AURORA CORE</div>
-              <div className="mono text-[10px] text-[var(--color-muted)] tracking-[0.3em] mt-1 uppercase">Cognitive-Energy Ecosystem · v2.0</div>
+              <div className="mono text-[10px] text-[var(--color-muted)] tracking-[0.3em] mt-1 uppercase">Tell it what's wrong · it figures out the rest</div>
             </div>
           </motion.div>
         )}

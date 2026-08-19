@@ -1,61 +1,32 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'wouter'
 import {
-  LayoutDashboard, Layers, Brain, Zap, Battery, FlaskConical,
-  Radio, MessageSquare, Bell, ChevronLeft, ChevronRight,
-  Activity, Menu, X, Heart, BookOpen, ExternalLink, Settings, Crown, Shield, Scale, Cpu, Bot, Code2,
+  Wrench, HardDrive, Heart, Settings, ChevronLeft, ChevronRight, Crown, Activity,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { AuroraBackground } from './AuroraBackground'
-import { DataTicker } from './DataTicker'
-import { useRealtime } from '../hooks/useRealtime'
 import { useAuth } from '../lib/auth'
 
 const NAV = [
-  { path: '/',             icon: LayoutDashboard, label: 'Dashboard'    },
-  { path: '/layers',       icon: Layers,          label: 'Layers'       },
-  { path: '/agents',       icon: Brain,           label: 'Agents'       },
-  { path: '/circuits',     icon: Zap,             label: 'Circuits'     },
-  { path: '/battery',      icon: Battery,         label: 'Battery'      },
-  { path: '/simulation',   icon: FlaskConical,    label: 'Simulation'   },
-  { path: '/turnbot',      icon: Radio,           label: 'TurnBot'      },
-  { path: '/chat',         icon: MessageSquare,   label: 'AI Chat'      },
-  { path: '/alerts',       icon: Bell,            label: 'Alerts'       },
-  { path: '/integrations', icon: ExternalLink,    label: 'Integrations', divider: true },
-  { path: '/dev',          icon: Code2,           label: 'Dev Portal'   },
-  { path: '/archangel',    icon: Shield,          label: 'ARCHANGEL'    },
-  { path: '/pillars',      icon: Scale,           label: 'XIII PILLARS' },
-  { path: '/sovereign',    icon: Cpu,             label: 'SOVEREIGN'    },
-  { path: '/jarvis',       icon: Bot,             label: 'JARVIS'       },
-  { path: '/manifesto',    icon: BookOpen,        label: 'Manifesto'    },
-  { path: '/legacy',       icon: Heart,           label: 'Legacy'       },
-  { path: '/settings',     icon: Settings,        label: 'Settings'     },
+  { path: '/',         icon: Wrench,    label: 'Cases'    },
+  { path: '/gear',     icon: HardDrive, label: 'Gear'     },
+  { path: '/legacy',   icon: Heart,     label: 'Legacy'   },
+  { path: '/settings', icon: Settings,  label: 'Settings' },
 ]
-
-const BOTTOM_PRIMARY = ['/', '/chat', '/integrations', '/legacy', '/settings']
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation()
   const [collapsed, setCollapsed] = useState(false)
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const metrics = useRealtime()
   const { user, isGod } = useAuth()
 
   const isActive = (path: string) =>
-    location === path || (path !== '/' && location.startsWith(path))
+    path === '/' ? (location === '/' || location.startsWith('/case')) : location.startsWith(path)
 
-  const isSpecial = (path: string) =>
-    ['/legacy', '/manifesto', '/settings', '/integrations'].includes(path)
-
-  const navClass = (path: string, active: boolean) => clsx(
+  const navClass = (active: boolean) => clsx(
     'flex items-center gap-3 px-2.5 py-2 rounded-lg font-medium transition-all cursor-pointer',
     active
-      ? isGod && path === '/settings'
-        ? 'bg-[oklch(0.85_0.20_0_/_0.12)] text-[oklch(0.90_0.18_0)] border border-[oklch(0.85_0.20_0_/_0.35)]'
-        : 'bg-[oklch(0.82_0.16_196_/_0.12)] text-[var(--color-cyan)] border border-[oklch(0.82_0.16_196_/_0.35)]'
-      : isSpecial(path)
-        ? 'text-[var(--color-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-elevated)]'
-        : 'text-[var(--color-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-elevated)]',
+      ? 'bg-[oklch(0.82_0.16_196_/_0.12)] text-[var(--color-cyan)] border border-[oklch(0.82_0.16_196_/_0.35)]'
+      : 'text-[var(--color-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-elevated)]',
   )
 
   const UserBadge = () => (
@@ -88,33 +59,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
         'bg-[var(--color-surface)]/80 backdrop-blur-xl border-r border-[var(--color-border)]',
         collapsed ? 'w-[52px]' : 'w-52',
       )}>
-        {/* Logo */}
         <div className="flex items-center gap-3 px-3 py-4 border-b border-[var(--color-border)]">
-          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[oklch(0.82_0.16_196_/_0.10)] border border-[oklch(0.82_0.16_196_/_0.35)] flex items-center justify-center glow-cyan">
+          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[oklch(0.82_0.16_196_/_0.10)] border border-[oklch(0.82_0.16_196_/_0.35)] flex items-center justify-center glow-teal">
             <Activity className="w-4 h-4 text-[var(--color-cyan)]" />
           </div>
           {!collapsed && (
             <div>
-              <div className="font-display font-black text-sm text-[var(--color-cyan)] text-glow-cyan leading-tight tracking-wider">AURORA</div>
-              <div className="font-display text-[9px] text-[var(--color-dim)] tracking-[0.2em] uppercase">CORE · v2.0</div>
+              <div className="font-display font-black text-sm text-[var(--color-cyan)] text-glow-teal leading-tight tracking-wider">AURORA</div>
+              <div className="font-display text-[9px] text-[var(--color-dim)] tracking-[0.2em] uppercase">problem → outcome</div>
             </div>
           )}
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-3 space-y-0.5 px-1.5">
-          {NAV.map(({ path, icon: Icon, label, divider }) => (
-            <div key={path}>
-              {divider && <div className="h-px bg-[var(--color-border)] my-2 mx-2" />}
-              <Link href={path} className={navClass(path, isActive(path))}>
-                <Icon className="w-4 h-4 flex-shrink-0" />
-                {!collapsed && <span className="truncate font-display text-xs tracking-wide">{label}</span>}
-              </Link>
-            </div>
+          {NAV.map(({ path, icon: Icon, label }) => (
+            <Link key={path} href={path} className={navClass(isActive(path))}>
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              {!collapsed && <span className="truncate font-display text-xs tracking-wide">{label}</span>}
+            </Link>
           ))}
         </nav>
 
-        {/* User + collapse */}
         <div className="border-t border-[var(--color-border)] p-2 space-y-1">
           <UserBadge />
           <button onClick={() => setCollapsed(c => !c)}
@@ -126,7 +91,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Desktop main */}
       <div className="hidden md:flex flex-col flex-1 min-w-0 relative z-10">
-        <DataTicker metrics={metrics} />
         <main className="flex-1 overflow-y-auto grid-overlay">{children}</main>
       </div>
 
@@ -137,94 +101,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="w-7 h-7 rounded-lg bg-[oklch(0.82_0.16_196_/_0.10)] border border-[oklch(0.82_0.16_196_/_0.35)] flex items-center justify-center">
               <Activity className="w-3.5 h-3.5 text-[var(--color-cyan)]" />
             </div>
-            <span className="font-display font-black text-sm text-[var(--color-cyan)] text-glow-cyan tracking-wider">AURORA CORE</span>
+            <span className="font-display font-black text-sm text-[var(--color-cyan)] text-glow-teal tracking-wider">AURORA</span>
             {isGod && <Crown className="w-3.5 h-3.5" style={{ color: 'oklch(0.85 0.20 0)' }} />}
           </div>
-          <button onClick={() => setDrawerOpen(true)} className="p-2 rounded-lg text-[var(--color-muted)]">
-            <Menu className="w-5 h-5" />
-          </button>
         </header>
-
-        <DataTicker metrics={metrics} />
 
         <main className="flex-1 overflow-y-auto grid-overlay pb-20">{children}</main>
 
-        {/* Bottom nav */}
         <nav className="fixed bottom-0 inset-x-0 z-40 bg-[var(--color-surface)]/90 backdrop-blur-xl border-t border-[var(--color-border)] md:hidden">
           <div className="flex items-stretch h-14" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-            {BOTTOM_PRIMARY.map(path => {
-              const item = NAV.find(n => n.path === path)!
-              const Icon = item.icon
+            {NAV.map(({ path, icon: Icon, label }) => {
               const active = isActive(path)
-              const godSettings = path === '/settings' && isGod
               return (
-                <Link key={path} href={path} onClick={() => setDrawerOpen(false)}
+                <Link key={path} href={path}
                   className={clsx('flex-1 flex flex-col items-center justify-center gap-0.5 px-1 transition-all active:scale-95',
-                    active
-                      ? godSettings ? 'text-[oklch(0.90_0.18_0)]' : 'text-[var(--color-cyan)]'
-                      : godSettings ? 'text-[oklch(0.70_0.15_0)]' : 'text-[var(--color-muted)]',
-                  )}>
+                    active ? 'text-[var(--color-cyan)]' : 'text-[var(--color-muted)]')}>
                   <Icon className="w-5 h-5" />
-                  <span className="text-[8px] font-display tracking-wide">{item.label}</span>
+                  <span className="text-[8px] font-display tracking-wide">{label}</span>
                 </Link>
               )
             })}
-            <button onClick={() => setDrawerOpen(true)}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 text-[var(--color-muted)] active:scale-95">
-              <Menu className="w-5 h-5" />
-              <span className="text-[8px] font-display tracking-wide">More</span>
-            </button>
           </div>
         </nav>
-
-        {/* Drawer */}
-        {drawerOpen && (
-          <div className="fixed inset-0 z-50">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
-            <div className="absolute right-0 top-0 bottom-0 w-72 bg-[var(--color-surface)]/95 backdrop-blur-xl border-l border-[var(--color-border)] flex flex-col">
-              <div className="flex items-center justify-between px-4 py-4 border-b border-[var(--color-border)]">
-                <div className="flex items-center gap-2">
-                  <div className="font-display font-black text-sm text-[var(--color-cyan)] text-glow-cyan tracking-widest">AURORA CORE</div>
-                  {isGod && <Crown className="w-3.5 h-3.5" style={{ color: 'oklch(0.85 0.20 0)' }} />}
-                </div>
-                <button onClick={() => setDrawerOpen(false)} className="text-[var(--color-muted)]"><X className="w-5 h-5" /></button>
-              </div>
-
-              {/* User card in drawer */}
-              <div className="px-3 py-2 border-b border-[var(--color-border)]">
-                <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${isGod ? 'bg-[oklch(0.85_0.20_0_/_0.08)] border border-[oklch(0.85_0.20_0_/_0.3)]' : 'bg-[var(--color-elevated)]'}`}>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-sm border ${
-                    isGod ? 'border-[oklch(0.85_0.20_0_/_0.5)] text-[oklch(0.90_0.18_0)]' : 'border-[var(--color-borderhi)] text-[var(--color-cyan)]'}`}>
-                    {isGod ? '⚡' : user?.name?.[0]?.toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="text-xs font-display font-bold" style={{ color: isGod ? 'oklch(0.90 0.18 0)' : 'var(--color-text)' }}>
-                      {user?.name} {isGod && '· God Mode'}
-                    </div>
-                    <div className="text-[9px] text-[var(--color-muted)]">{user?.email}</div>
-                  </div>
-                </div>
-              </div>
-
-              <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-                {NAV.map(({ path, icon: Icon, label, divider }) => (
-                  <div key={path}>
-                    {divider && <div className="h-px bg-[var(--color-border)] my-2 mx-1" />}
-                    <Link href={path} onClick={() => setDrawerOpen(false)}
-                      className={clsx('flex items-center gap-3 px-3 py-3 rounded-lg transition-all',
-                        isActive(path)
-                          ? 'bg-[oklch(0.82_0.16_196_/_0.12)] text-[var(--color-cyan)] border border-[oklch(0.82_0.16_196_/_0.3)]'
-                          : 'text-[var(--color-muted)] hover:bg-[var(--color-elevated)]',
-                      )}>
-                      <Icon className="w-5 h-5 flex-shrink-0" />
-                      <span className="font-display text-sm font-medium">{label}</span>
-                    </Link>
-                  </div>
-                ))}
-              </nav>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
