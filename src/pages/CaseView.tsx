@@ -3,8 +3,10 @@ import { useLocation, Link } from 'wouter'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft, Camera, Send, ShieldAlert, CheckCircle2, Trash2, Cpu, Wrench, ImageIcon,
+  Volume2, VolumeX,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
+import { handsFreeOn, setHandsFree, primeSpeech, speak, stopSpeaking, speechSupported } from '../lib/speech'
 import {
   loadCases, saveCases, upsertCase, deleteCase, newEvent, imageIdsIn,
   loadEquipment, saveEquipment, newEquipment, matchEquipment,
@@ -21,8 +23,20 @@ export function CaseView({ id }: { id: string }) {
   const [cases, setCases] = useState<Case[]>(loadCases)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [handsFree, setHF] = useState(handsFreeOn)
   const fileRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Stop any speech when leaving the case.
+  useEffect(() => () => stopSpeaking(), [])
+
+  const toggleHandsFree = () => {
+    const on = !handsFree
+    primeSpeech() // must run inside this tap to unlock speech on iOS
+    setHandsFree(on)
+    setHF(on)
+    if (on) speak("Hands-free on. I'll read each step aloud.")
+  }
 
   const kase = cases.find(c => c.id === id) ?? null
 
@@ -93,6 +107,7 @@ export function CaseView({ id }: { id: string }) {
 
     updated = { ...updated, timeline: [...updated.timeline, ...events] }
     persist(updated)
+    speak(reply.reply, reply.safety)
   }
 
   const send = async () => {
@@ -158,6 +173,12 @@ export function CaseView({ id }: { id: string }) {
             {kase.equipmentId && <EquipmentTag id={kase.equipmentId} />}
           </div>
         </div>
+        {speechSupported && (
+          <button onClick={toggleHandsFree} title={handsFree ? 'Hands-free on — Aurora reads aloud' : 'Hands-free off'}
+            className={`p-1.5 rounded-lg transition-colors ${handsFree ? 'text-[var(--color-cyan)]' : 'text-[var(--color-muted)] hover:text-[var(--color-text)]'}`}>
+            {handsFree ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          </button>
+        )}
         <button onClick={resolve} title={resolved ? 'Reopen' : 'Mark resolved'}
           className={`p-1.5 rounded-lg transition-colors ${resolved ? 'text-[var(--color-green)]' : 'text-[var(--color-muted)] hover:text-[var(--color-green)]'}`}>
           <CheckCircle2 className="w-4 h-4" />
